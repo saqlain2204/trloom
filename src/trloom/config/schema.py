@@ -68,6 +68,8 @@ class DatasetConfig(BaseModel):
 
     path: str | None = None
     name: str | None = None
+    # Optional datasets split selector, e.g. "train" or "train[:64]"
+    split: str | None = None
     data_files: str | list[str] | dict[str, Any] | None = None
     data_dir: str | None = None
     streaming: bool = False
@@ -115,16 +117,24 @@ class ModalConfig(BaseModel):
 
     enabled: bool = False
     app_name: str = "trloom"
-    gpu: str = "A100"
+    gpu: str = "T4"
     timeout: int = 60 * 60 * 4
     cpu: float | None = None
     memory: int | None = None
     volume_name: str = "trloom-outputs"
     volume_mount: str = "/outputs"
-    secrets: list[str] = Field(default_factory=lambda: ["huggingface", "wandb"])
+    # Names of Modal Secrets to attach (create with `modal secret create ...`).
+    # Leave empty for public Hub models/datasets that need no tokens.
+    secrets: list[str] = Field(default_factory=list)
     pip_packages: list[str] = Field(default_factory=list)
     python_version: str = "3.11"
     region: str | None = None
+    # How to get trloom into the Modal image:
+    # - local: mount the local installed package (best for development)
+    # - git: pip install from git_url (best for reproducibility)
+    # - pypi: pip install trloom (once published)
+    install_source: Literal["local", "git", "pypi"] = "local"
+    git_url: str = "git+https://github.com/saqlain2204/trloom.git"
     # If set, copy training output from the Modal volume back to this local path
     download_dir: str | None = None
 

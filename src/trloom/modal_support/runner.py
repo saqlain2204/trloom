@@ -12,6 +12,18 @@ from trloom.config.schema import FineTuneConfig, ModalConfig
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_PIP = [
+    "torch",
+    "trl",
+    "transformers",
+    "datasets",
+    "accelerate",
+    "peft",
+    "pyyaml",
+    "pydantic",
+    "huggingface-hub",
+]
+
 
 def _ensure_modal() -> Any:
     try:
@@ -23,33 +35,52 @@ def _ensure_modal() -> Any:
     return modal
 
 
-def _build_image(modal: Any, modal_cfg: ModalConfig) -> Any:
-    packages = [
-        "trloom",
-        "trl",
-        "transformers",
-        "datasets",
-        "accelerate",
-        "peft",
-        "pyyaml",
-        "pydantic",
-        "huggingface-hub",
-        "wandb",
-        *list(modal_cfg.pip_packages),
-    ]
-    # Deduplicate while preserving order
+def _dedupe(packages: list[str]) -> list[str]:
     seen: set[str] = set()
-    unique_packages: list[str] = []
+    unique: list[str] = []
     for package in packages:
         key = package.lower()
         if key not in seen:
             seen.add(key)
-            unique_packages.append(package)
+            unique.append(package)
+    return unique
 
-    image = (
-        modal.Image.debian_slim(python_version=modal_cfg.python_version)
-        .pip_install(*unique_packages)
-    )
+
+def _build_image(modal: Any, modal_cfg: ModalConfig) -> Any:
+    packages = _dedupe([*_DEFAULT_PIP, *list(modal_cfg.pip_packages)])
+    image = modal.Image.debian_slim(python_version=modal_cfg.python_version)
+
+    if modal_cfg.install_source == "pypi":
+        image = image.pip_install("trloom", *packages)
+    elif modal_cfg.install_source == "git":
+        image = image.pip_install(modal_cfg.git_url, *packages)
+    else:
+        # local: install deps in the image, then mount the local trloom package
+        image = image.pip_install(*packages)
+        try:
+            image = image.add_local_python_source("trloom")
+        except Exception as exc:
+            # Fallback: copy src/trloom from the repository checkout
+            repo_src = Path(__file__).resolve().parents[2]
+            package_dir = repo_src / "trloom"
+            if not package_dir.is_dir():
+                raise RuntimeError(
+                    "install_source=local requires an editable install of trloom "
+                    "(`pip install -e .`) or a src/trloom checkout."
+                ) from exc
+            logger.warning(
+                "add_local_python_source failed (%s); mounting %s instead",
+                exc,
+                package_dir,
+            )
+            image = image.add_local_dir(str(package_dir), remote_path="/root/trloom")
+            image = image.env({"PYTHONPATH": "/root"})
+
+    if modal_cfg.install_source != "local" and any(
+        "wandb" in pkg.lower() for pkg in modal_cfg.pip_packages
+    ):
+        pass  # already included via pip_packages
+
     return image
 
 
@@ -69,8 +100,9 @@ def create_modal_app(config: FineTuneConfig, config_path: str | Path | None = No
         "gpu": modal_cfg.gpu,
         "timeout": modal_cfg.timeout,
         "volumes": {modal_cfg.volume_mount: volume},
-        "secrets": secret_objects,
     }
+    if secret_objects:
+        function_kwargs["secrets"] = secret_objects
     if modal_cfg.cpu is not None:
         function_kwargs["cpu"] = modal_cfg.cpu
     if modal_cfg.memory is not None:
@@ -169,9 +201,7 @@ def _download_volume_subdir(
     """Best-effort download of volume outputs to a local directory."""
     local_dir.mkdir(parents=True, exist_ok=True)
     volume = modal.Volume.from_name(volume_name)
-    # Modal Volume API varies by version; support common patterns.
     if hasattr(volume, "get"):
-        # Newer APIs may support path-based get; fall back to read-only mount via temporary copy.
         logger.info(
             "Download requested to %s — use `modal volume get %s %s %s` if automatic copy is unavailable.",
             local_dir,
@@ -191,7 +221,11 @@ def _download_volume_subdir(
                     target.write_bytes(data)
                 else:
                     chunks = list(data)
-                    target.write_bytes(b"".join(chunks) if chunks and isinstance(chunks[0], (bytes, bytearray)) else b"".join(c.encode() if isinstance(c, str) else c for c in chunks))
+                    target.write_bytes(
+                        b"".join(chunks)
+                        if chunks and isinstance(chunks[0], (bytes, bytearray))
+                        else b"".join(c.encode() if isinstance(c, str) else c for c in chunks)
+                    )
         logger.info("Downloaded Modal volume outputs to %s", local_dir)
     except Exception as exc:
         logger.warning(
@@ -202,7 +236,6 @@ def _download_volume_subdir(
             remote_subdir,
             local_dir,
         )
-        # Keep a marker file so callers know the remote location
         marker = local_dir / "REMOTE_OUTPUT.txt"
         marker.write_text(
             f"Remote volume={volume_name} subdir={remote_subdir}\n",
@@ -216,7 +249,6 @@ def write_modal_entrypoint(config_path: str | Path, destination: str | Path | No
     Useful when users prefer ``modal run script.py`` over the Python API.
     """
     path = Path(config_path).expanduser().resolve()
-    config = load_config(path)
     dest = (
         Path(destination).expanduser().resolve()
         if destination

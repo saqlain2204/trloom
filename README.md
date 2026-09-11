@@ -186,6 +186,7 @@ job.run()               # train + save (+ optional Hub push)
 
 See the [`examples/`](examples/) directory:
 
+- `modal_smoke/` — **complete end-to-end Modal walkthrough** (tiny GPT-2, 3 steps, T4)
 - `sft_hub.yaml` — SFT from the Hub
 - `sft_local.yaml` — SFT from local JSONL
 - `dpo_wandb.yaml` — DPO with W&B

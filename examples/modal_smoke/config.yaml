@@ -1,0 +1,52 @@
+# Tiny end-to-end SFT smoke job on Modal
+#
+# Model:  sshleifer/tiny-gpt2   (~few MB)
+# Data:   stanfordnlp/imdb train[:64] from the Hugging Face Hub
+# GPU:    T4
+# Steps:  3  (just enough to prove the pipeline works)
+
+method: sft
+
+model:
+  model_name_or_path: sshleifer/tiny-gpt2
+  dtype: float32
+  use_peft: false
+
+dataset:
+  path: stanfordnlp/imdb
+  # Load only 64 rows so the download + first step stays tiny
+  split: "train[:64]"
+  train_split: train
+  eval_split: null
+  text_column: text
+
+training:
+  output_dir: ./outputs/modal-smoke
+  max_steps: 3
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
+  learning_rate: 5.0e-5
+  logging_steps: 1
+  save_strategy: "no"
+  report_to: none
+  bf16: false
+  fp16: false
+  max_length: 128
+  dataset_text_field: text
+  remove_unused_columns: false
+
+wandb:
+  enabled: false
+
+modal:
+  enabled: true
+  app_name: trloom-modal-smoke
+  gpu: T4
+  timeout: 1800
+  volume_name: trloom-smoke-outputs
+  volume_mount: /outputs
+  # Public model + dataset — no HF/W&B secrets required
+  secrets: []
+  install_source: local
+  pip_packages: []
+  download_dir: ./outputs/modal-smoke-download

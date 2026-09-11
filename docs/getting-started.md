@@ -7,11 +7,40 @@
 
 ## Installation
 
-Clone the repository and install in editable mode:
+Clone the repository:
 
 ```bash
 git clone https://github.com/saqlain2204/trloom.git
 cd trloom
+```
+
+### One-command bootstrap (recommended)
+
+Works on Windows, macOS, and Linux. Creates `.venv` if it does not exist.
+
+```bash
+# Local install only
+python scripts/bootstrap.py
+
+# Install Modal extra and run Modal auth setup
+python scripts/bootstrap.py --modal
+```
+
+Activate the venv afterward:
+
+```bash
+# macOS / Linux
+source .venv/bin/activate
+
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
+
+Optional flags: `--wandb`, `--dev`, `--all`, `--skip-modal-setup`.
+
+### Manual install
+
+```bash
 pip install -e .
 ```
 

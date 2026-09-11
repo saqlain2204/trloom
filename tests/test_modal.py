@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from trloom.config import load_config
 from trloom.modal_support.runner import write_modal_entrypoint
+
+modal = pytest.importorskip("modal")
 
 
 def test_write_modal_entrypoint(tmp_path: Path) -> None:
@@ -43,3 +47,19 @@ def test_modal_config_roundtrip() -> None:
     assert config.modal.enabled is True
     assert config.modal.gpu == "A10G"
     assert config.modal.timeout == 3600
+
+
+def test_create_modal_app_wraps_module_level_entrypoint() -> None:
+    from trloom.modal_support.runner import create_modal_app, train_remote
+
+    config = load_config(
+        {
+            "method": "sft",
+            "model": {"model_name_or_path": "sshleifer/tiny-gpt2"},
+            "dataset": {"path": "trl-lib/Capybara", "eval_split": None},
+            "modal": {"enabled": True, "app_name": "trloom-test-nested"},
+        }
+    )
+    app = create_modal_app(config)
+    assert hasattr(app, "trloom_train_remote")
+    assert callable(train_remote)

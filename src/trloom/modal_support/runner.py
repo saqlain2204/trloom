@@ -84,6 +84,54 @@ def _build_image(modal: Any, modal_cfg: ModalConfig) -> Any:
     return image
 
 
+def train_remote(
+    config_yaml: str,
+    output_subdir: str = "run",
+    volume_mount: str = "/outputs",
+    volume_name: str = "trloom-outputs",
+) -> dict[str, Any]:
+    """Remote Modal entrypoint (module scope so Modal does not need serialization).
+
+    Defined at import time so local Python (e.g. 3.12) can differ from the
+    image Python (e.g. 3.11). The function body runs inside the image using
+    the mounted / installed ``trloom`` package.
+    """
+    from pathlib import Path as _Path
+
+    import modal
+    import yaml
+
+    from trloom.config.loader import load_config as _load_config
+    from trloom.job import FineTuneJob
+
+    run_dir = _Path(volume_mount) / output_subdir
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    data = yaml.safe_load(config_yaml)
+    if not isinstance(data, dict):
+        raise TypeError("Config YAML must deserialize to a mapping.")
+
+    # Already running on Modal — train locally inside this container.
+    data.setdefault("modal", {})
+    data["modal"]["enabled"] = False
+    data.setdefault("training", {})
+    data["training"]["output_dir"] = str(run_dir)
+
+    cfg = _load_config(data)
+    result = FineTuneJob(cfg).run()
+
+    volume = modal.Volume.from_name(volume_name)
+    volume.commit()
+
+    metrics = getattr(result, "metrics", None)
+    return {
+        "output_dir": str(run_dir),
+        "metrics": dict(metrics) if isinstance(metrics, dict) else None,
+        "status": "completed",
+        "volume_name": volume_name,
+    }
+
+
 def create_modal_app(config: FineTuneConfig, config_path: str | Path | None = None) -> Any:
     """Create a Modal App wired to run a TRLoom job from YAML content."""
     modal = _ensure_modal()
@@ -114,45 +162,14 @@ def create_modal_app(config: FineTuneConfig, config_path: str | Path | None = No
     if config_path is not None:
         yaml_text = Path(config_path).expanduser().resolve().read_text(encoding="utf-8")
 
-    @app.function(**function_kwargs)
-    def train_remote(config_yaml: str, output_subdir: str = "run") -> dict[str, Any]:
-        """Remote entrypoint executed inside Modal."""
-        from pathlib import Path as _Path
+    # Wrap the module-level function (global scope) with dynamic Modal settings.
+    train_fn = app.function(**function_kwargs)(train_remote)
 
-        import yaml
-
-        from trloom.config.loader import load_config as _load_config
-        from trloom.job import FineTuneJob
-
-        mount = modal_cfg.volume_mount
-        run_dir = _Path(mount) / output_subdir
-        run_dir.mkdir(parents=True, exist_ok=True)
-
-        data = yaml.safe_load(config_yaml)
-        if not isinstance(data, dict):
-            raise TypeError("Config YAML must deserialize to a mapping.")
-
-        # Force local execution inside the container and redirect outputs to the volume
-        data.setdefault("modal", {})
-        data["modal"]["enabled"] = False
-        data.setdefault("training", {})
-        data["training"]["output_dir"] = str(run_dir)
-
-        cfg = _load_config(data)
-        result = FineTuneJob(cfg).run()
-        volume.commit()
-
-        metrics = getattr(result, "metrics", None)
-        return {
-            "output_dir": str(run_dir),
-            "metrics": dict(metrics) if isinstance(metrics, dict) else None,
-            "status": "completed",
-        }
-
-    # Attach helpers for callers
-    app.trloom_train_remote = train_remote  # type: ignore[attr-defined]
+    app.trloom_train_remote = train_fn  # type: ignore[attr-defined]
     app.trloom_config_yaml = yaml_text  # type: ignore[attr-defined]
     app.trloom_volume = volume  # type: ignore[attr-defined]
+    app.trloom_volume_mount = modal_cfg.volume_mount  # type: ignore[attr-defined]
+    app.trloom_volume_name = modal_cfg.volume_name  # type: ignore[attr-defined]
     return app
 
 
@@ -177,7 +194,12 @@ def run_on_modal(config_path: str | Path, *, output_subdir: str | None = None) -
 
     with app.run():
         remote = app.trloom_train_remote  # type: ignore[attr-defined]
-        result = remote.remote(yaml_text, subdir)
+        result = remote.remote(
+            yaml_text,
+            subdir,
+            config.modal.volume_mount,
+            config.modal.volume_name,
+        )
 
     download_dir = config.modal.download_dir
     if download_dir:

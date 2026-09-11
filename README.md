@@ -21,6 +21,34 @@ Configure the model, dataset, trainer, Weights & Biases, and optional [Modal](ht
 
 ## Installation
 
+Requires Python 3.10+ and a working TRL / PyTorch environment for actual training.
+
+### One-command bootstrap (any OS)
+
+Creates `.venv` if needed, then installs TRLoom:
+
+```bash
+# Local only (no Modal auth)
+python scripts/bootstrap.py
+
+# Local + Modal extra + `modal setup`
+python scripts/bootstrap.py --modal
+```
+
+Optional flags: `--wandb`, `--dev`, `--all`, `--skip-modal-setup`.
+
+Then activate the venv:
+
+```bash
+# macOS / Linux
+source .venv/bin/activate
+
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
+
+### Manual install
+
 ```bash
 pip install -e .
 
@@ -31,8 +59,6 @@ pip install -e ".[docs]"
 pip install -e ".[all]"
 pip install -e ".[dev]"
 ```
-
-Requires Python 3.10+ and a working TRL / PyTorch environment for actual training.
 
 ## Quickstart
 

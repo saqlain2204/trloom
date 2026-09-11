@@ -73,21 +73,19 @@ class TrainerSpec:
 
 
 def _camel_to_snake(name: str) -> str:
-    chars: list[str] = []
-    for index, char in enumerate(name):
-        if char.isupper() and index > 0 and (not name[index - 1].isupper() or (
-            index + 1 < len(name) and name[index + 1].islower()
-        )):
-            chars.append("_")
-        chars.append(char.lower())
-    return "".join(chars)
+    import re
+
+    # Standard CamelCase / acronym splitting (DPO -> dpo, MiniLLM -> mini_llm)
+    stepped = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
+    stepped = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", stepped)
+    return stepped.replace("__", "_").strip("_").lower()
 
 
 def _method_key_from_trainer_name(trainer_name: str) -> str | None:
-    if not trainer_name.endswith("Trainer"):
+    if trainer_name.startswith("_") or not trainer_name.endswith("Trainer"):
         return None
     base = trainer_name[: -len("Trainer")]
-    if not base:
+    if not base or base.startswith("_"):
         return None
     return _camel_to_snake(base)
 
@@ -105,6 +103,9 @@ def _iter_trl_modules() -> list[tuple[Any, bool]]:
         logger.debug("Could not import trl.trainer: %s", exc)
 
     try:
+        import os
+
+        os.environ.setdefault("TRL_EXPERIMENTAL_SILENCE", "1")
         experimental = importlib.import_module("trl.experimental")
         modules.append((experimental, True))
         if hasattr(experimental, "__path__"):
@@ -126,7 +127,14 @@ def _iter_trl_modules() -> list[tuple[Any, bool]]:
 def _collect_classes(modules: list[tuple[Any, bool]]) -> dict[str, tuple[type, bool]]:
     found: dict[str, tuple[type, bool]] = {}
     for module, experimental in modules:
-        for name, obj in vars(module).items():
+        # TRL uses lazy modules where exports appear in dir() but not vars().
+        for name in dir(module):
+            if name.startswith("_"):
+                continue
+            try:
+                obj = getattr(module, name)
+            except Exception:  # pragma: no cover - defensive
+                continue
             if not inspect.isclass(obj):
                 continue
             # Prefer first discovery; stable trl package wins over experimental
@@ -192,13 +200,20 @@ def get_trainer_spec(method: str) -> TrainerSpec:
     """Resolve a training method string to a :class:`TrainerSpec`."""
     key = resolve_method_name(method)
     registry = _build_registry()
-    if key not in registry:
-        available = ", ".join(list_trainers())
-        raise KeyError(
-            f"Unknown training method '{method}' (resolved to '{key}'). "
-            f"Available methods for this TRL install: {available}"
-        )
-    return registry[key]
+    if key in registry:
+        return registry[key]
+
+    # Fallback: compare compact forms (a2po == a2_po)
+    compact = key.replace("_", "")
+    for name, spec in registry.items():
+        if name.replace("_", "") == compact:
+            return spec
+
+    available = ", ".join(list_trainers())
+    raise KeyError(
+        f"Unknown training method '{method}' (resolved to '{key}'). "
+        f"Available methods for this TRL install: {available}"
+    )
 
 
 def clear_registry_cache() -> None:

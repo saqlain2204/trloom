@@ -1,0 +1,48 @@
+# GRPO on Modal with W&B logging
+method: grpo
+
+model:
+  model_name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: bfloat16
+  use_peft: true
+  lora_r: 16
+  lora_alpha: 32
+
+dataset:
+  path: HuggingFaceH4/Polaris-Dataset-53K
+  train_split: train
+  eval_split: null
+
+reward_funcs:
+  - accuracy_reward
+
+training:
+  output_dir: ./outputs/grpo-modal
+  learning_rate: 1.0e-5
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  logging_steps: 5
+  bf16: true
+  report_to: wandb
+
+wandb:
+  enabled: true
+  project: trloom-grpo
+  entity: null
+  run_name: qwen05b-grpo-modal
+  tags:
+    - grpo
+    - modal
+
+modal:
+  enabled: true
+  app_name: trloom-grpo
+  gpu: A100
+  timeout: 14400
+  volume_name: trloom-outputs
+  volume_mount: /outputs
+  secrets:
+    - huggingface
+    - wandb
+  download_dir: ./outputs/grpo-modal-download

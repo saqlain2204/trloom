@@ -1,5 +1,203 @@
 # TRLoom
 
-YAML-driven end-to-end fine-tuning on top of [Hugging Face TRL](https://huggingface.co/docs/trl).
+**TRLoom** weaves a single YAML config into an end-to-end [Hugging Face TRL](https://huggingface.co/docs/trl) fine-tuning job.
 
-> Scaffolding in progress — configuration, trainers, Modal, and docs land in follow-up commits.
+Configure the model, dataset, trainer, Weights & Biases, and optional [Modal](https://modal.com) GPU execution — then run one command.
+
+## Features
+
+- **TRL-native** — discovers trainers/configs from your installed TRL version (SFT, DPO, GRPO, KTO, Reward, RLOO, and experimental methods)
+- **YAML-first** — model, dataset, training args, W&B, and Modal all live in one file
+- **Datasets** — Hugging Face Hub, local files (`json`/`jsonl`/`csv`/`parquet`/…), saved `datasets` directories, and mixtures
+- **W&B** — enable and configure logging entirely from YAML
+- **Modal** — launch the same YAML on remote GPUs with volume-backed outputs
+- **CLI + Python API** — `trloom run config.yaml` or `FineTuneJob.from_yaml(...)`
+
+## Installation
+
+```bash
+pip install -e .
+
+# Optional extras
+pip install -e ".[wandb]"
+pip install -e ".[modal]"
+pip install -e ".[all]"
+pip install -e ".[dev]"
+```
+
+Requires Python 3.10+ and a working TRL / PyTorch environment for actual training.
+
+## Quickstart
+
+### 1. Write a config
+
+```yaml
+# sft.yaml
+method: sft
+
+model:
+  model_name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+  use_peft: true
+  lora_r: 16
+  lora_alpha: 32
+
+dataset:
+  path: trl-lib/Capybara
+  train_split: train
+
+training:
+  output_dir: ./outputs/sft
+  learning_rate: 2.0e-4
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+  report_to: none
+
+wandb:
+  enabled: false
+
+modal:
+  enabled: false
+```
+
+### 2. Run
+
+```bash
+trloom validate sft.yaml
+trloom run sft.yaml
+```
+
+Or from Python:
+
+```python
+from trloom import FineTuneJob, run_from_yaml
+
+# One-liner
+run_from_yaml("sft.yaml")
+
+# Or step through the API
+job = FineTuneJob.from_yaml("sft.yaml")
+job.run()
+```
+
+## Configuration reference
+
+| Section | Purpose |
+|--------|---------|
+| `method` | TRL method key: `sft`, `dpo`, `grpo`, `kto`, `reward`, `rloo`, … |
+| `model` | Model id + PEFT/quantization (aligned with TRL `ModelConfig`) |
+| `dataset` | Hub repo, local path, or `datasets:` mixture |
+| `training` | Forwarded to the TRL `*Config` class (`SFTConfig`, `DPOConfig`, …) |
+| `wandb` | Weights & Biases project/entity/tags/mode |
+| `modal` | Remote GPU execution on Modal |
+| `reward_funcs` | Names or import paths for GRPO/RLOO-style rewards |
+| `trainer_kwargs` | Extra kwargs passed to the Trainer constructor |
+| `push_to_hub` / `hub_model_id` | Optional Hub upload after training |
+
+List methods available in your environment:
+
+```bash
+trloom methods
+```
+
+### Dataset examples
+
+**Hub**
+
+```yaml
+dataset:
+  path: trl-lib/Capybara
+  train_split: train
+```
+
+**Local JSONL**
+
+```yaml
+dataset:
+  path: ./data/train.jsonl
+  train_split: train
+```
+
+**Mixture**
+
+```yaml
+dataset:
+  train_split: train
+  datasets:
+    - path: stanfordnlp/imdb
+      split: train
+      weight: 0.5
+    - path: ./data/extra.jsonl
+      weight: 0.5
+```
+
+### Weights & Biases
+
+```yaml
+training:
+  report_to: wandb   # optional; set automatically when wandb.enabled is true
+
+wandb:
+  enabled: true
+  project: my-project
+  entity: my-team
+  run_name: qwen-sft-01
+  tags: [sft, lora]
+  mode: online       # online | offline | disabled
+```
+
+### Modal
+
+1. Install and authenticate: `pip install 'trloom[modal]' && modal setup`
+2. Create secrets named in the config (default: `huggingface`, `wandb`)
+3. Set `modal.enabled: true` (or pass `--modal`)
+
+```bash
+trloom run examples/grpo_modal.yaml --modal
+# or generate a standalone script
+trloom modal-script examples/grpo_modal.yaml -o run_modal.py
+modal run run_modal.py
+```
+
+## Python API
+
+```python
+from trloom import FineTuneJob, available_methods, load_config
+
+print(available_methods())
+
+config = load_config("sft.yaml")
+job = FineTuneJob(config)
+trainer = job.build()   # construct TRL trainer
+job.run()               # train + save (+ optional Hub push)
+```
+
+| Method | Description |
+|--------|-------------|
+| `FineTuneJob.from_yaml(path)` | Load YAML into a job |
+| `FineTuneJob.from_dict(data)` | Load an in-memory config |
+| `job.build()` | Construct the TRL trainer |
+| `job.train()` / `job.run()` | Run training end-to-end |
+| `run_from_yaml(path)` | Load + run (honors `modal.enabled`) |
+| `load_config(path)` | Validate and return `FineTuneConfig` |
+| `available_methods()` | List TRL methods for this install |
+
+## Examples
+
+See the [`examples/`](examples/) directory:
+
+- `sft_hub.yaml` — SFT from the Hub
+- `sft_local.yaml` — SFT from local JSONL
+- `dpo_wandb.yaml` — DPO with W&B
+- `grpo_modal.yaml` — GRPO on Modal
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+## License
+
+Apache-2.0

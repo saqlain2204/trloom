@@ -1,0 +1,28 @@
+# SFT on a local JSONL dataset
+method: sft
+
+model:
+  model_name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+  use_peft: true
+  lora_r: 8
+  lora_alpha: 16
+
+dataset:
+  path: examples/data/sample_sft.jsonl
+  train_split: train
+  eval_split: null
+
+training:
+  output_dir: ./outputs/sft-local
+  learning_rate: 2.0e-4
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  logging_steps: 5
+  report_to: none
+
+wandb:
+  enabled: false
+
+modal:
+  enabled: false

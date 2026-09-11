@@ -1,0 +1,35 @@
+# Direct Preference Optimization
+method: dpo
+
+model:
+  model_name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: bfloat16
+  use_peft: true
+  lora_r: 16
+  lora_alpha: 32
+
+dataset:
+  path: trl-lib/ultrafeedback_binarized
+  train_split: train
+  eval_split: test
+
+training:
+  output_dir: ./outputs/dpo-ultrafeedback
+  learning_rate: 5.0e-6
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  logging_steps: 10
+  bf16: true
+  report_to: wandb
+
+wandb:
+  enabled: true
+  project: trloom-dpo
+  run_name: qwen05b-ultrafeedback
+  tags:
+    - dpo
+    - example
+
+modal:
+  enabled: false

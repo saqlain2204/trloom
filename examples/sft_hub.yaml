@@ -1,0 +1,34 @@
+# Supervised fine-tuning example (Hugging Face Hub dataset)
+method: sft
+
+model:
+  model_name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: bfloat16
+  use_peft: true
+  lora_r: 16
+  lora_alpha: 32
+  lora_target_modules:
+    - q_proj
+    - v_proj
+
+dataset:
+  path: trl-lib/Capybara
+  train_split: train
+  eval_split: null
+
+training:
+  output_dir: ./outputs/sft-capybara
+  learning_rate: 2.0e-4
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+  logging_steps: 10
+  save_steps: 100
+  bf16: true
+  report_to: none
+
+wandb:
+  enabled: false
+
+modal:
+  enabled: false

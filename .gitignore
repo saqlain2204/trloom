@@ -62,3 +62,10 @@ secrets/
 
 # Modal
 .modal/
+
+# Docs build
+site/
+
+# Local article drafts (not part of the library)
+medium-trloom-tutorial.md
+*-medium*.md

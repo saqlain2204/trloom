@@ -1,8 +1,14 @@
 # TRLoom
 
+<p align="center">
+  <img src="assets/trloom.png" alt="TRLoom" width="280" />
+</p>
+
 **TRLoom** weaves a single YAML config into an end-to-end [Hugging Face TRL](https://huggingface.co/docs/trl) fine-tuning job.
 
 Configure the model, dataset, trainer, Weights & Biases, and optional [Modal](https://modal.com) GPU execution — then run one command.
+
+**Docs:** [https://saqlain2204.github.io/trloom/](https://saqlain2204.github.io/trloom/)
 
 ## Features
 
@@ -21,6 +27,7 @@ pip install -e .
 # Optional extras
 pip install -e ".[wandb]"
 pip install -e ".[modal]"
+pip install -e ".[docs]"
 pip install -e ".[all]"
 pip install -e ".[dev]"
 ```
@@ -79,6 +86,20 @@ run_from_yaml("sft.yaml")
 job = FineTuneJob.from_yaml("sft.yaml")
 job.run()
 ```
+
+## Documentation
+
+Full guides and API reference:
+
+- Online: [saqlain2204.github.io/trloom](https://saqlain2204.github.io/trloom/)
+- Local preview:
+
+```bash
+pip install -e ".[docs]"
+mkdocs serve
+```
+
+Coverage includes configuration reference, datasets, W&B, Modal, CLI, and the Python API.
 
 ## Configuration reference
 
@@ -197,6 +218,11 @@ See the [`examples/`](examples/) directory:
 ```bash
 pip install -e ".[dev]"
 pytest
+
+# Documentation
+pip install -e ".[docs]"
+mkdocs serve
+mkdocs build --strict
 ```
 
 ## License

@@ -53,11 +53,15 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.8.0",
 ]
+docs = [
+  "mkdocs-material>=9.5.0",
+  "mkdocstrings[python]>=0.26.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/saqlain2204/trloom"
 Repository = "https://github.com/saqlain2204/trloom"
-Documentation = "https://github.com/saqlain2204/trloom#readme"
+Documentation = "https://saqlain2204.github.io/trloom/"
 Issues = "https://github.com/saqlain2204/trloom/issues"
 
 [project.scripts]
@@ -71,6 +75,8 @@ include = [
   "/src",
   "/tests",
   "/examples",
+  "/docs",
+  "/mkdocs.yml",
   "/README.md",
   "/LICENSE",
 ]

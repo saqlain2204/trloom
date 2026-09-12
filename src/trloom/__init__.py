@@ -16,4 +16,4 @@ __all__ = [
     "run_from_yaml",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

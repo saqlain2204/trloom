@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "trloom"
-version = "0.1.0"
+version = "0.1.1"
 description = "YAML-driven end-to-end fine-tuning on top of Hugging Face TRL, with W&B and Modal support."
 readme = "README.md"
 license = "Apache-2.0"

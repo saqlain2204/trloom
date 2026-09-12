@@ -7,6 +7,32 @@
 
 ## Installation
 
+### From PyPI (recommended)
+
+```bash
+pip install trloom
+
+# Optional extras
+pip install "trloom[wandb]"         # Weights & Biases
+pip install "trloom[modal]"         # Modal remote GPUs
+pip install "trloom[bitsandbytes]"  # 4-bit / 8-bit loading
+pip install "trloom[all]"           # wandb + modal + bitsandbytes
+pip install "trloom[dev]"           # pytest, ruff
+pip install "trloom[docs]"          # mkdocs
+```
+
+### From Git
+
+```bash
+pip install git+https://github.com/saqlain2204/trloom.git
+
+# With extras
+pip install "trloom[modal] @ git+https://github.com/saqlain2204/trloom.git"
+pip install "trloom[all] @ git+https://github.com/saqlain2204/trloom.git"
+```
+
+### From source (editable)
+
 Clone the repository:
 
 ```bash
@@ -14,7 +40,7 @@ git clone https://github.com/saqlain2204/trloom.git
 cd trloom
 ```
 
-### One-command bootstrap (recommended)
+#### One-command bootstrap
 
 Works on Windows, macOS, and Linux. Creates `.venv` if it does not exist.
 
@@ -38,15 +64,10 @@ source .venv/bin/activate
 
 Optional flags: `--wandb`, `--dev`, `--all`, `--skip-modal-setup`.
 
-### Manual install
+#### Manual editable install
 
 ```bash
 pip install -e .
-```
-
-### Optional extras
-
-```bash
 pip install -e ".[wandb]"         # Weights & Biases
 pip install -e ".[modal]"         # Modal remote GPUs
 pip install -e ".[bitsandbytes]"  # 4-bit / 8-bit loading

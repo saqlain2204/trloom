@@ -1,7 +1,7 @@
 # TRLoom
 
 <p align="center">
-  <img src="assets/trloom.png" alt="TRLoom" width="280" />
+  <img src="https://raw.githubusercontent.com/saqlain2204/trloom/main/assets/trloom.png" alt="TRLoom" width="280" />
 </p>
 
 **TRLoom** weaves a single YAML config into an end-to-end [Hugging Face TRL](https://huggingface.co/docs/trl) fine-tuning job.
@@ -23,21 +23,52 @@ Configure the model, dataset, trainer, Weights & Biases, and optional [Modal](ht
 
 Requires Python 3.10+ and a working TRL / PyTorch environment for actual training.
 
-### One-command bootstrap (any OS)
-
-Creates `.venv` if needed, then installs TRLoom:
+### From PyPI (recommended)
 
 ```bash
-# Local only (no Modal auth)
-python scripts/bootstrap.py
+pip install trloom
 
-# Local + Modal extra + `modal setup`
-python scripts/bootstrap.py --modal
+# Optional extras
+pip install "trloom[wandb]"
+pip install "trloom[modal]"
+pip install "trloom[bitsandbytes]"
+pip install "trloom[all]"      # wandb + modal + bitsandbytes
+pip install "trloom[dev]"      # pytest, ruff
+pip install "trloom[docs]"     # mkdocs
 ```
 
-Optional flags: `--wandb`, `--dev`, `--all`, `--skip-modal-setup`.
+### From Git
 
-Then activate the venv:
+```bash
+pip install git+https://github.com/saqlain2204/trloom.git
+
+# With extras
+pip install "trloom[modal] @ git+https://github.com/saqlain2204/trloom.git"
+pip install "trloom[all] @ git+https://github.com/saqlain2204/trloom.git"
+```
+
+### From source (editable)
+
+Clone the repo, then either bootstrap or install manually:
+
+```bash
+git clone https://github.com/saqlain2204/trloom.git
+cd trloom
+
+# One-command bootstrap (creates .venv if needed)
+python scripts/bootstrap.py
+# Optional: --modal, --wandb, --dev, --all, --skip-modal-setup
+
+# Or editable install
+pip install -e .
+pip install -e ".[wandb]"
+pip install -e ".[modal]"
+pip install -e ".[docs]"
+pip install -e ".[all]"
+pip install -e ".[dev]"
+```
+
+Activate the venv after bootstrap:
 
 ```bash
 # macOS / Linux
@@ -45,19 +76,6 @@ source .venv/bin/activate
 
 # Windows PowerShell
 .venv\Scripts\Activate.ps1
-```
-
-### Manual install
-
-```bash
-pip install -e .
-
-# Optional extras
-pip install -e ".[wandb]"
-pip install -e ".[modal]"
-pip install -e ".[docs]"
-pip install -e ".[all]"
-pip install -e ".[dev]"
 ```
 
 ## Quickstart

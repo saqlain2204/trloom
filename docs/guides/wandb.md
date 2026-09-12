@@ -3,7 +3,8 @@
 Install the optional extra and authenticate once:
 
 ```bash
-pip install -e ".[wandb]"
+pip install "trloom[wandb]"
+# or from source: pip install -e ".[wandb]"
 wandb login
 ```
 

@@ -6,7 +6,8 @@ written to a Modal volume and can be downloaded locally.
 ## Setup
 
 ```bash
-pip install -e ".[modal]"
+pip install "trloom[modal]"
+# or from source: pip install -e ".[modal]"
 python -m modal setup
 ```
 
@@ -54,7 +55,7 @@ modal:
 |-------|----------|
 | `local` | Mount your local package (best while developing) |
 | `git` | `pip install` from `git_url` |
-| `pypi` | `pip install trloom` (once published) |
+| `pypi` | `pip install trloom` from PyPI |
 
 Inside Modal, TRLoom forces `modal.enabled: false` and redirects
 `training.output_dir` onto the volume mount so the remote process does not

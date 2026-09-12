@@ -34,6 +34,16 @@ training:
 trloom run sft.yaml
 ```
 
+## Install
+
+```bash
+pip install trloom
+# or
+pip install git+https://github.com/saqlain2204/trloom.git
+```
+
+See [Getting started](getting-started.md) for extras and editable installs.
+
 ## Features
 
 - **TRL-native** — discovers trainers from your installed TRL version (SFT, DPO,

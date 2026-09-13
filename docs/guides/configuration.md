@@ -15,6 +15,8 @@ TRL as TRL evolves.
 | `wandb` | object | disabled | Weights & Biases settings |
 | `modal` | object | disabled | Modal remote execution settings |
 | `reward_funcs` | string or list | `null` | Reward names or import paths (GRPO / RLOO) |
+| `formatting_func` | string | `null` | Import path for trainer formatting_func |
+| `user_code` | string or list | `[]` | Local modules shipped to remote workers |
 | `trainer_kwargs` | object | `{}` | Extra kwargs for the Trainer constructor |
 | `push_to_hub` | bool | `false` | Upload after training |
 | `hub_model_id` | string | `null` | Hub repo id when pushing |
@@ -88,6 +90,12 @@ Requires either `path` or `datasets`.
 | `text_column` | `null` | Validated if set |
 | `columns` | `null` | Rename map `{src: dst}` |
 | `kwargs` | `{}` | Passthrough to `load_dataset` |
+| `map_fn` | `null` | Import path for `Dataset.map` |
+| `map_kwargs` | `{}` | Extra kwargs for `Dataset.map` |
+| `prompt_template` | `null` | Jinja2 template → `prompt_output_column` |
+| `prompt_output_column` | `"text"` | Column written by the template |
+| `prompt_remove_columns` | `null` | List of columns to drop, or `true` for all |
+| `formatting_func` | `null` | Import path for trainer formatting_func |
 
 Per-source fields under `datasets[]`: `path`, `name`, `split`, `data_files`,
 `data_dir`, `streaming`, `columns`, `weight`.
@@ -151,12 +159,17 @@ See [Modal](modal.md).
 | `git_url` | repo git URL |
 | `download_dir` | `null` |
 
-## Rewards and trainer extras
+## Rewards, formatting, and trainer extras
 
 ```yaml
 reward_funcs:
   - accuracy_reward
   # or: my_package.rewards:my_fn
+
+formatting_func: my_package.formatters:to_text  # trainer formatting_func
+
+user_code:
+  - ./my_package            # local modules shipped to Modal / remote workers
 
 trainer_kwargs:
   # Extra kwargs for the Trainer constructor
@@ -166,8 +179,10 @@ hub_model_id: null
 seed: 42
 ```
 
-`reward_funcs` accepts a TRL built-in name or an import path
-(`pkg.mod:func` / `pkg.mod.func`).
+`reward_funcs` and `formatting_func` / `dataset.map_fn` accept import paths
+(`pkg.mod:func` / `pkg.mod.func`). Local modules listed in `user_code` (or
+auto-detected from those import paths) are bundled when the job runs on Modal
+so remote workers can import them.
 
 ## Full starter config
 

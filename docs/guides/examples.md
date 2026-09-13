@@ -6,7 +6,10 @@ All example configs live in the repository [`examples/`](https://github.com/saql
 |------|----------------|
 | `examples/sft_hub.yaml` | SFT from a Hub dataset with LoRA |
 | `examples/sft_local.yaml` | SFT from local JSONL |
+| `examples/sft_formatted.yaml` | Custom `map_fn` + `user_code` bundling |
+| `examples/formatters.py` | Sample formatter callables for YAML import paths |
 | `examples/data/sample_sft.jsonl` | Tiny local chat-style sample |
+| `examples/data/sample_instruction.jsonl` | Instruction/response rows for formatting demos |
 | `examples/dpo_wandb.yaml` | DPO with Weights & Biases |
 | `examples/grpo_modal.yaml` | GRPO on Modal with rewards and secrets |
 | `examples/modal_smoke/` | Complete tiny Modal walkthrough |

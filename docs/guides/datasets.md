@@ -60,6 +60,71 @@ dataset:
     completion: response
 ```
 
+## Prompt templates and formatting functions
+
+Raw datasets often need reshaping before TRL trainers see them. Configure this
+in YAML — the same callables work locally and on Modal.
+
+### Inline Jinja2 prompt template
+
+```yaml
+dataset:
+  path: ./data/raw.jsonl
+  train_split: train
+  eval_split: null
+  prompt_template: |
+    ### Instruction:
+    {{ instruction }}
+
+    ### Response:
+    {{ response }}
+  prompt_output_column: text
+  prompt_remove_columns: true   # drop original columns after render
+  text_column: text
+```
+
+Template variables are dataset column names. Requires Jinja2 (pulled in by
+`transformers`).
+
+### Custom `map_fn` (import path)
+
+```yaml
+dataset:
+  path: ./data/raw.jsonl
+  train_split: train
+  eval_split: null
+  map_fn: formatters:instruction_to_text
+  map_kwargs: {}          # forwarded to Dataset.map
+  text_column: text
+
+user_code:
+  - ./formatters.py       # shipped to Modal automatically
+```
+
+`map_fn` runs before `prompt_template` when both are set.
+
+### Trainer `formatting_func` (e.g. SFT)
+
+```yaml
+dataset:
+  path: ./data/chat.jsonl
+  formatting_func: formatters:messages_to_text
+
+# Or at the root (overrides dataset.formatting_func):
+formatting_func: formatters:messages_to_text
+```
+
+Resolved import paths are passed to trainers that accept `formatting_func`
+(such as `SFTTrainer`).
+
+### Remote providers (Modal)
+
+YAML-referenced modules under `user_code` / callable import paths are
+**bundled with the job** and installed on the remote worker before training.
+You do not need a separate image build step for small formatter modules.
+
+See [Modal](modal.md#user-code-and-formatters) and `examples/sft_formatted.yaml`.
+
 ## Mixtures
 
 ```yaml

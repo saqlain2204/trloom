@@ -6,9 +6,17 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict, concatenate_datasets, load_dataset
+from datasets import (
+    Dataset,
+    DatasetDict,
+    IterableDataset,
+    IterableDatasetDict,
+    concatenate_datasets,
+    load_dataset,
+)
 
 from trloom.config.schema import DatasetConfig, DatasetSourceConfig
+from trloom.data.formatting import format_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -168,10 +176,26 @@ def _normalize(weights: list[float]) -> list[float]:
     return [w / total for w in weights]
 
 
+def _apply_formatting(split: Any, config: DatasetConfig) -> Any:
+    if not (config.map_fn or config.prompt_template):
+        return split
+    return format_dataset(
+        split,
+        map_fn=config.map_fn,
+        map_kwargs=config.map_kwargs,
+        prompt_template=config.prompt_template,
+        prompt_output_column=config.prompt_output_column,
+        prompt_remove_columns=config.prompt_remove_columns,
+    )
+
+
 def load_train_eval_datasets(
     config: DatasetConfig,
 ) -> tuple[Dataset | IterableDataset, Dataset | IterableDataset | None]:
-    """Load train (and optional eval) datasets from a :class:`DatasetConfig`."""
+    """Load train (and optional eval) datasets from a :class:`DatasetConfig`.
+
+    After load / column rename, applies optional ``map_fn`` and ``prompt_template``.
+    """
     if config.datasets:
         dataset_dict = _mix_datasets(config.datasets, train_split=config.train_split)
     else:
@@ -190,10 +214,10 @@ def load_train_eval_datasets(
             f"Train split '{config.train_split}' not found in dataset. Available splits: {available}"
         )
 
-    train_dataset = dataset_dict[config.train_split]
+    train_dataset = _apply_formatting(dataset_dict[config.train_split], config)
     eval_dataset: Dataset | IterableDataset | None = None
     if config.eval_split and config.eval_split in dataset_dict:
-        eval_dataset = dataset_dict[config.eval_split]
+        eval_dataset = _apply_formatting(dataset_dict[config.eval_split], config)
 
     if config.text_column and hasattr(train_dataset, "column_names"):
         if config.text_column not in train_dataset.column_names:

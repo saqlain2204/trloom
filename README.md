@@ -15,6 +15,7 @@ Configure the model, dataset, trainer, Weights & Biases, and optional [Modal](ht
 - **TRL-native** — discovers trainers/configs from your installed TRL version (SFT, DPO, GRPO, KTO, Reward, RLOO, and experimental methods)
 - **YAML-first** — model, dataset, training args, W&B, and Modal all live in one file
 - **Datasets** — Hugging Face Hub, local files (`json`/`jsonl`/`csv`/`parquet`/…), saved `datasets` directories, and mixtures
+- **Formatting** — Jinja2 prompt templates, YAML-referenced `map_fn` / `formatting_func`, bundled to Modal with the job
 - **W&B** — enable and configure logging entirely from YAML
 - **Modal** — launch the same YAML on remote GPUs with volume-backed outputs
 - **CLI + Python API** — `trloom run config.yaml` or `FineTuneJob.from_yaml(...)`

@@ -89,12 +89,16 @@ def train_remote(
     output_subdir: str = "run",
     volume_mount: str = "/outputs",
     volume_name: str = "trloom-outputs",
+    user_code_bundle: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Remote Modal entrypoint (module scope so Modal does not need serialization).
 
     Defined at import time so local Python (e.g. 3.12) can differ from the
     image Python (e.g. 3.11). The function body runs inside the image using
     the mounted / installed ``trloom`` package.
+
+    ``user_code_bundle`` maps relative ``.py`` paths to source text so YAML-referenced
+    callables (formatters, rewards, map_fn, …) remain importable on the remote worker.
     """
     from pathlib import Path as _Path
 
@@ -103,6 +107,10 @@ def train_remote(
 
     from trloom.config.loader import load_config as _load_config
     from trloom.job import FineTuneJob
+    from trloom.user_code import install_user_code_bundle
+
+    # Install bundled user modules before config resolution / imports of callables.
+    install_user_code_bundle(user_code_bundle)
 
     run_dir = _Path(volume_mount) / output_subdir
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -129,6 +137,7 @@ def train_remote(
         "metrics": dict(metrics) if isinstance(metrics, dict) else None,
         "status": "completed",
         "volume_name": volume_name,
+        "user_code_files": sorted(user_code_bundle) if user_code_bundle else [],
     }
 
 
@@ -181,6 +190,16 @@ def run_on_modal(config_path: str | Path, *, output_subdir: str | None = None) -
     if not config.modal.enabled:
         logger.info("Enabling Modal for this run (modal.enabled was false in YAML).")
 
+    from trloom.user_code import build_user_code_bundle
+
+    user_code_bundle = build_user_code_bundle(config)
+    if user_code_bundle:
+        logger.info(
+            "Dispatching %d user_code file(s) with Modal job: %s",
+            len(user_code_bundle),
+            ", ".join(sorted(user_code_bundle)),
+        )
+
     app = create_modal_app(config, config_path=path)
     yaml_text = path.read_text(encoding="utf-8")
     subdir = output_subdir or path.stem
@@ -199,6 +218,7 @@ def run_on_modal(config_path: str | Path, *, output_subdir: str | None = None) -
             subdir,
             config.modal.volume_mount,
             config.modal.volume_name,
+            user_code_bundle or None,
         )
 
     download_dir = config.modal.download_dir

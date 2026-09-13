@@ -8,8 +8,10 @@ from typing import Any
 
 from trloom.config.schema import FineTuneConfig, ModelConfig
 from trloom.data.dataset import load_train_eval_datasets
+from trloom.imports import resolve_callable
 from trloom.rewards import resolve_reward_funcs
 from trloom.trainers.registry import TrainerSpec, get_trainer_spec
+from trloom.user_code import prepare_local_user_code
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +79,7 @@ def _prepare_model_init_kwargs(training_args: Any, model_args: Any, config: Fine
     # Drop Nones
     init_kwargs = {k: v for k, v in init_kwargs.items() if v is not None}
     if hasattr(training_args, "model_init_kwargs"):
-        existing = getattr(training_args, "model_init_kwargs") or {}
+        existing = training_args.model_init_kwargs or {}
         if isinstance(existing, dict):
             training_args.model_init_kwargs = {**init_kwargs, **existing}
         else:
@@ -87,6 +89,8 @@ def _prepare_model_init_kwargs(training_args: Any, model_args: Any, config: Fine
 def build_trainer(config: FineTuneConfig) -> Any:
     """Build a configured TRL trainer instance (without running training)."""
     from trl import get_peft_config, get_quantization_config
+
+    prepare_local_user_code(config)
 
     spec = get_trainer_spec(config.method)
     if spec.experimental:
@@ -130,6 +134,13 @@ def build_trainer(config: FineTuneConfig) -> Any:
     reward_funcs = resolve_reward_funcs(config.reward_funcs)
     if reward_funcs is not None:
         trainer_kwargs.setdefault("reward_funcs", reward_funcs)
+
+    formatting_spec = config.resolved_formatting_func()
+    if formatting_spec:
+        trainer_kwargs.setdefault(
+            "formatting_func",
+            resolve_callable(formatting_spec, label="formatting_func"),
+        )
 
     filtered_kwargs = _filter_kwargs_for_callable(spec.trainer_cls.__init__, trainer_kwargs)
     dropped = sorted(set(trainer_kwargs) - set(filtered_kwargs))

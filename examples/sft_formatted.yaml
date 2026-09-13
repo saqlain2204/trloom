@@ -1,0 +1,46 @@
+# SFT with a custom map_fn + optional inline prompt template.
+# Demonstrates YAML-referenced formatting that also ships to Modal via user_code bundling.
+method: sft
+
+model:
+  model_name_or_path: sshleifer/tiny-gpt2
+  dtype: float32
+
+dataset:
+  path: examples/data/sample_instruction.jsonl
+  train_split: train
+  eval_split: null
+  # Custom preprocess (import path). Bundled automatically for Modal.
+  map_fn: formatters:instruction_to_text
+  text_column: text
+  # Equivalent inline Jinja2 option (use instead of map_fn if preferred):
+  # prompt_template: |
+  #   ### Instruction:
+  #   {{ instruction }}
+  #
+  #   ### Response:
+  #   {{ response }}
+  # prompt_output_column: text
+  # prompt_remove_columns: true
+
+training:
+  output_dir: ./outputs/sft-formatted
+  learning_rate: 2.0e-4
+  max_steps: 2
+  per_device_train_batch_size: 1
+  logging_steps: 1
+  report_to: none
+  dataset_text_field: text
+  max_length: 128
+  remove_unused_columns: false
+
+# Explicit paths are optional when callables are already referenced above;
+# listed here so dependents of formatters are always shipped.
+user_code:
+  - ./formatters.py
+
+wandb:
+  enabled: false
+
+modal:
+  enabled: false

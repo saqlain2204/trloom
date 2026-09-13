@@ -40,6 +40,14 @@ job.run()
 
 ::: trloom.config.loader.load_config
 
+## Dataset formatting
+
+::: trloom.data.formatting.format_dataset
+
+::: trloom.imports.resolve_callable
+
+::: trloom.user_code.build_user_code_bundle
+
 ## Trainers
 
 ::: trloom.trainers.registry.list_trainers

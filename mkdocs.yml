@@ -80,6 +80,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Tutorial: tutorial.md
   - Guides:
       - Configuration: guides/configuration.md
       - Datasets: guides/datasets.md
@@ -93,3 +94,7 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/saqlain2204/trloom
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/trloom/
+    - icon: fontawesome/brands/x-twitter
+      link: https://x.com/imsaqlain22

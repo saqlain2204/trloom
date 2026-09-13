@@ -4,8 +4,8 @@ name: Cut release
 # When you're ready (after accumulating commits on main):
 #   Actions → Cut release → Run workflow → choose patch / minor / major
 #
-# That creates vX.Y.Z + a GitHub Release. The tag push then triggers
-# release.yml to build and publish to PyPI via Trusted Publishing.
+# Creates vX.Y.Z + a GitHub Release, then dispatches release.yml to publish
+# to PyPI (tag pushes from GITHUB_TOKEN do not trigger other workflows).
 
 on:
   workflow_dispatch:
@@ -22,6 +22,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag-release:
@@ -75,3 +76,12 @@ jobs:
             --title "$TAG" \
             --generate-notes \
             --verify-tag
+
+      - name: Dispatch PyPI publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.semver.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Tag pushes made with GITHUB_TOKEN do not start other workflows.
+          gh workflow run release.yml --ref "$TAG" -f "tag=$TAG"

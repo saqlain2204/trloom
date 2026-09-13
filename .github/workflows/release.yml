@@ -1,20 +1,27 @@
 name: Publish to PyPI
 
-# Runs when a v* tag is pushed (typically by cut-release.yml).
 # Publishes with Trusted Publishing (OIDC) — no long-lived PyPI API token.
+#
+# Triggered by:
+#   - cut-release.yml (workflow_dispatch) after it creates a tag
+#   - manual "Run workflow" (e.g. retry a failed publish)
+#   - push of a v* tag created outside Actions (local git push)
 #
 # One-time setup on https://pypi.org/manage/project/trloom/settings/publishing/ :
 #   Owner:      saqlain2204
 #   Repository: trloom
 #   Workflow:   release.yml
 #   Environment: pypi
-#
-# Also create a GitHub Environment named "pypi" (Settings → Environments).
-# Optional but recommended: require reviewers for that environment.
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing git tag to publish (e.g. v0.1.2)
+        required: true
+        type: string
 
 jobs:
   build:
@@ -25,6 +32,7 @@ jobs:
         with:
           # hatch-vcs needs full history + tags for the package version.
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v5

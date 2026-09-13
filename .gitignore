@@ -66,6 +66,9 @@ secrets/
 # Docs build
 site/
 
+# hatch-vcs generated version module
+src/trloom/_version.py
+
 # Local article drafts (not part of the library)
 medium-trloom-tutorial.md
 *-medium*.md

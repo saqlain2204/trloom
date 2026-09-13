@@ -40,9 +40,21 @@ jobs:
           python-version: "3.12"
 
       - name: Build sdist and wheel
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip build
           python -m build
+          ls -la dist/
+          expected="${RELEASE_TAG#v}"
+          wheel="$(ls dist/trloom-*-py3-none-any.whl)"
+          got="$(basename "$wheel" | sed -n 's/^trloom-\(.*\)-py3-none-any\.whl$/\1/p')"
+          echo "tag=${RELEASE_TAG} expected=${expected} built=${got}"
+          if [ "$got" != "$expected" ]; then
+            echo "Version mismatch: built package ${got} does not match tag ${RELEASE_TAG}"
+            exit 1
+          fi
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4

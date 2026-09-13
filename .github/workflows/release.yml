@@ -1,0 +1,62 @@
+name: Publish to PyPI
+
+# Runs when a v* tag is pushed (typically by cut-release.yml).
+# Publishes with Trusted Publishing (OIDC) — no long-lived PyPI API token.
+#
+# One-time setup on https://pypi.org/manage/project/trloom/settings/publishing/ :
+#   Owner:      saqlain2204
+#   Repository: trloom
+#   Workflow:   release.yml
+#   Environment: pypi
+#
+# Also create a GitHub Environment named "pypi" (Settings → Environments).
+# Optional but recommended: require reviewers for that environment.
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # hatch-vcs needs full history + tags for the package version.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/trloom
+    permissions:
+      id-token: write # mandatory for Trusted Publishing / OIDC
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

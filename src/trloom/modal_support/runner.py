@@ -22,6 +22,7 @@ _DEFAULT_PIP = [
     "pyyaml",
     "pydantic",
     "huggingface-hub",
+    "wandb"
 ]
 
 

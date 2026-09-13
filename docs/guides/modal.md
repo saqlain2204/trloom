@@ -61,6 +61,26 @@ Inside Modal, TRLoom forces `modal.enabled: false` and redirects
 `training.output_dir` onto the volume mount so the remote process does not
 recurse.
 
+## User code and formatters
+
+When your YAML references local Python callables (`dataset.map_fn`,
+`formatting_func`, custom `reward_funcs`, …), TRLoom **bundles those modules
+with the Modal job** and installs them on the remote worker before training.
+
+```yaml
+dataset:
+  map_fn: formatters:instruction_to_text
+
+user_code:
+  - ./formatters.py   # optional explicit list; auto-detected from import paths too
+
+modal:
+  enabled: true
+```
+
+Stdlib and site-packages modules are not bundled (use `modal.pip_packages` for
+third-party deps). See `examples/sft_formatted.yaml`.
+
 ## Run
 
 ```bash

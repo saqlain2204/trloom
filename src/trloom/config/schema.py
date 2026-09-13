@@ -62,6 +62,11 @@ class DatasetConfig(BaseModel):
     """Dataset loading configuration.
 
     Prefer ``path`` for a single Hub/local dataset, or ``datasets`` for a mixture.
+
+    Formatting (applied after load / rename, before training):
+    - ``map_fn``: import path applied via ``dataset.map``
+    - ``prompt_template``: Jinja2 template rendered per row into ``prompt_output_column``
+    - ``formatting_func``: import path forwarded to trainers that accept it (e.g. SFT)
     """
 
     model_config = ConfigDict(extra="allow")
@@ -83,6 +88,32 @@ class DatasetConfig(BaseModel):
 
     # Optional Hugging Face datasets kwargs passthrough
     kwargs: dict[str, Any] = Field(default_factory=dict)
+
+    # Pre-training dataset transforms (YAML-referenced callables / templates)
+    map_fn: str | None = Field(
+        default=None,
+        description="Import path for a datasets.map callable, e.g. 'my_pkg.format:fn'.",
+    )
+    map_kwargs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Extra kwargs forwarded to Dataset.map when map_fn is set.",
+    )
+    prompt_template: str | None = Field(
+        default=None,
+        description="Jinja2 template rendered per row (keys = column names).",
+    )
+    prompt_output_column: str = Field(
+        default="text",
+        description="Column written by prompt_template.",
+    )
+    prompt_remove_columns: list[str] | bool | None = Field(
+        default=None,
+        description="Columns to drop after prompt_template. True drops all prior columns.",
+    )
+    formatting_func: str | None = Field(
+        default=None,
+        description="Import path for a trainer formatting_func (e.g. SFTTrainer).",
+    )
 
     @model_validator(mode="after")
     def _require_source(self) -> DatasetConfig:
@@ -160,6 +191,20 @@ class FineTuneConfig(BaseModel):
 
     # Optional extras
     reward_funcs: list[str] | str | None = None
+    formatting_func: str | None = Field(
+        default=None,
+        description=(
+            "Import path for a trainer formatting_func. "
+            "Overrides dataset.formatting_func when both are set."
+        ),
+    )
+    user_code: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Local .py files or package directories to ship with remote jobs "
+            "(Modal, etc.) so YAML-referenced callables remain importable."
+        ),
+    )
     trainer_kwargs: dict[str, Any] = Field(
         default_factory=dict,
         description="Extra kwargs passed directly to the TRL Trainer constructor.",
@@ -179,6 +224,17 @@ class FineTuneConfig(BaseModel):
         if isinstance(value, str):
             return [value]
         return value
+
+    @field_validator("user_code", mode="before")
+    @classmethod
+    def _coerce_user_code(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return [value]
+        return value
+
+    def resolved_formatting_func(self) -> str | None:
+        """Trainer formatting_func import path (root overrides dataset)."""
+        return self.formatting_func or self.dataset.formatting_func
 
     def resolved_output_dir(self) -> Path:
         output_dir = self.training.get("output_dir", "./outputs")

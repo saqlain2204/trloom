@@ -11,6 +11,7 @@ from trloom.config.schema import FineTuneConfig
 from trloom.logging_utils import finish_wandb, maybe_init_wandb
 from trloom.trainers.builder import build_trainer
 from trloom.trainers.registry import list_trainers
+from trloom.user_code import prepare_local_user_code
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class FineTuneJob:
 
     def build(self) -> Any:
         """Construct (but do not train) the underlying TRL trainer."""
+        prepare_local_user_code(self.config)
         self._wandb_run = maybe_init_wandb(self.config)
         self.trainer = build_trainer(self.config)
         return self.trainer

@@ -7,6 +7,8 @@ import logging
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from trloom.imports import resolve_callable
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,22 +43,14 @@ def resolve_reward_funcs(names: Sequence[str] | None) -> list[Callable[..., Any]
 
 
 def _resolve_one(name: str, rewards_module: Any | None) -> Callable[..., Any]:
+    # Prefer explicit import paths (colon form or dotted path not found on trl.rewards).
     if ":" in name:
-        module_name, attr = name.split(":", 1)
-        module = importlib.import_module(module_name)
-        func = getattr(module, attr)
-        if not callable(func):
-            raise TypeError(f"Reward '{name}' is not callable.")
-        return func
+        return resolve_callable(name, label="reward function")
 
     if "." in name and rewards_module is not None and not hasattr(rewards_module, name):
-        module_name, attr = name.rsplit(".", 1)
         try:
-            module = importlib.import_module(module_name)
-            func = getattr(module, attr)
-            if callable(func):
-                return func
-        except (ImportError, AttributeError):
+            return resolve_callable(name, label="reward function")
+        except (ImportError, AttributeError, TypeError, ValueError):
             pass
 
     if rewards_module is not None and hasattr(rewards_module, name):
@@ -67,12 +61,7 @@ def _resolve_one(name: str, rewards_module: Any | None) -> Callable[..., Any]:
 
     # Final attempt: treat as module.attr
     if "." in name:
-        module_name, attr = name.rsplit(".", 1)
-        module = importlib.import_module(module_name)
-        func = getattr(module, attr)
-        if not callable(func):
-            raise TypeError(f"Reward '{name}' is not callable.")
-        return func
+        return resolve_callable(name, label="reward function")
 
     raise ValueError(
         f"Could not resolve reward function '{name}'. "

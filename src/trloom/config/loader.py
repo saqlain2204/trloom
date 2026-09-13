@@ -30,7 +30,30 @@ def load_config_dict(source: str | Path | dict[str, Any]) -> dict[str, Any]:
     return _read_yaml(path)
 
 
+def _resolve_user_code_paths(config: FineTuneConfig, base_dir: Path) -> FineTuneConfig:
+    """Resolve relative ``user_code`` entries against the YAML file directory."""
+    if not config.user_code:
+        return config
+    resolved: list[str] = []
+    for raw in config.user_code:
+        candidate = Path(raw).expanduser()
+        if not candidate.is_absolute():
+            candidate = (base_dir / candidate).resolve()
+        else:
+            candidate = candidate.resolve()
+        resolved.append(str(candidate))
+    return config.model_copy(update={"user_code": resolved})
+
+
 def load_config(source: str | Path | dict[str, Any]) -> FineTuneConfig:
-    """Load and validate a :class:`FineTuneConfig` from YAML or a dict."""
+    """Load and validate a :class:`FineTuneConfig` from YAML or a dict.
+
+    When loading from a file, relative ``user_code`` paths are resolved against
+    the YAML file's directory so Modal / local runs find the same modules.
+    """
     data = load_config_dict(source)
-    return FineTuneConfig.model_validate(data)
+    config = FineTuneConfig.model_validate(data)
+    if not isinstance(source, dict):
+        base_dir = Path(source).expanduser().resolve().parent
+        config = _resolve_user_code_paths(config, base_dir)
+    return config

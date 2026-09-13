@@ -278,6 +278,19 @@ mkdocs serve
 mkdocs build --strict
 ```
 
+## Releases
+
+Every merge to `main` automatically creates the next SemVer git tag (`vX.Y.Z`) and
+a GitHub Release (patch bump by default). The package version is derived from
+those tags via `hatch-vcs`.
+
+| Marker in the merge commit message | Effect |
+|------------------------------------|--------|
+| *(none)* | patch (`v0.1.1` → `v0.1.2`) |
+| `#minor` or `[minor]` | minor (`v0.1.1` → `v0.2.0`) |
+| `#major` or `[major]` | major (`v0.1.1` → `v1.0.0`) |
+| `[skip release]` or `[skip tag]` | do not tag |
+
 ## License
 
 Apache-2.0

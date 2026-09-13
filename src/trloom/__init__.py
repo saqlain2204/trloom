@@ -16,4 +16,22 @@ __all__ = [
     "run_from_yaml",
 ]
 
-__version__ = "0.1.1"
+
+def _resolve_version() -> str:
+    try:
+        from trloom._version import __version__ as built
+
+        return built
+    except ImportError:
+        pass
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+    except ImportError:  # pragma: no cover
+        return "0.0.0"
+    try:
+        return version("trloom")
+    except PackageNotFoundError:
+        return "0.0.0"
+
+
+__version__ = _resolve_version()

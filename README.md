@@ -4,6 +4,15 @@
   <img src="https://raw.githubusercontent.com/saqlain2204/trloom/main/assets/trloom.png" alt="TRLoom" width="280" />
 </p>
 
+<p align="center">
+  <a href="https://pypi.org/project/trloom/"><img src="https://img.shields.io/pypi/v/trloom.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/trloom/"><img src="https://img.shields.io/pypi/pyversions/trloom.svg" alt="Python"></a>
+  <a href="https://github.com/saqlain2204/trloom/actions/workflows/ci.yml"><img src="https://github.com/saqlain2204/trloom/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://saqlain2204.github.io/trloom/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
+  <a href="https://github.com/saqlain2204/trloom/stargazers"><img src="https://img.shields.io/github/stars/saqlain2204/trloom?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/saqlain2204/trloom/blob/main/LICENSE"><img src="https://img.shields.io/github/license/saqlain2204/trloom" alt="License"></a>
+</p>
+
 **TRLoom** weaves a single YAML config into an end-to-end [Hugging Face TRL](https://huggingface.co/docs/trl) fine-tuning job.
 
 Configure the model, dataset, trainer, Weights & Biases, and optional [Modal](https://modal.com) GPU execution — then run one command.

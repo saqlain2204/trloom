@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/trloom/"><img src="https://img.shields.io/pypi/v/trloom.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/trloom/"><img src="https://img.shields.io/pypi/v/trloom.svg?cacheSeconds=0" alt="PyPI"></a>
   <a href="https://pypi.org/project/trloom/"><img src="https://img.shields.io/pypi/pyversions/trloom.svg" alt="Python"></a>
   <a href="https://github.com/saqlain2204/trloom/actions/workflows/ci.yml"><img src="https://github.com/saqlain2204/trloom/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://saqlain2204.github.io/trloom/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>

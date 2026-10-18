@@ -1,0 +1,47 @@
+# SFT example targeting Kaggle GPUs.
+# - Inside a Kaggle kernel: set mode to auto/inline and run `trloom run`.
+# - Locally: generates a notebook (and optionally pushes via the Kaggle API).
+method: sft
+
+model:
+  model_name_or_path: sshleifer/tiny-gpt2
+  dtype: float32
+
+dataset:
+  path: examples/data/sample_instruction.jsonl
+  train_split: train
+  eval_split: null
+  map_fn: formatters:instruction_to_text
+  text_column: text
+
+training:
+  output_dir: ./outputs/sft-kaggle
+  learning_rate: 2.0e-4
+  max_steps: 2
+  per_device_train_batch_size: 1
+  logging_steps: 1
+  report_to: none
+  dataset_text_field: text
+  max_length: 128
+  remove_unused_columns: false
+
+user_code:
+  - ./formatters.py
+
+wandb:
+  enabled: false
+
+modal:
+  enabled: false
+
+kaggle:
+  enabled: true
+  mode: notebook          # auto | inline | notebook
+  accelerator: gpu
+  push: false             # set true + credentials to push via Kaggle API
+  title: TRLoom SFT (tiny-gpt2)
+  is_private: true
+  enable_internet: true
+  install_source: pypi    # pypi | git
+  output_dir: /kaggle/working/outputs
+  pip_packages: []

@@ -38,6 +38,8 @@ job.run()
 
 ::: trloom.config.schema.ModalConfig
 
+::: trloom.config.schema.KaggleConfig
+
 ::: trloom.config.loader.load_config
 
 ## Dataset formatting
@@ -47,6 +49,14 @@ job.run()
 ::: trloom.imports.resolve_callable
 
 ::: trloom.user_code.build_user_code_bundle
+
+## Kaggle
+
+::: trloom.kaggle_support.run_on_kaggle
+
+::: trloom.kaggle_support.write_kaggle_notebook
+
+::: trloom.kaggle_support.is_kaggle_environment
 
 ## Trainers
 

@@ -6,6 +6,7 @@ from trloom.config.loader import load_config, load_config_dict
 from trloom.config.schema import (
     DatasetConfig,
     FineTuneConfig,
+    KaggleConfig,
     ModalConfig,
     ModelConfig,
     WandbConfig,
@@ -14,6 +15,7 @@ from trloom.config.schema import (
 __all__ = [
     "DatasetConfig",
     "FineTuneConfig",
+    "KaggleConfig",
     "ModalConfig",
     "ModelConfig",
     "WandbConfig",

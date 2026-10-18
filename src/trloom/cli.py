@@ -44,9 +44,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force execution on Modal (overrides modal.enabled in YAML).",
     )
     run_parser.add_argument(
+        "--kaggle",
+        action="store_true",
+        help="Force execution on Kaggle (overrides kaggle.enabled in YAML).",
+    )
+    run_parser.add_argument(
         "--local",
         action="store_true",
-        help="Force local execution (overrides modal.enabled in YAML).",
+        help="Force local execution (overrides remote backends in YAML).",
     )
 
     subparsers.add_parser("methods", help="List TRL training methods available in this environment.")
@@ -65,6 +70,19 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="Destination path for the generated script.",
+    )
+
+    kaggle_parser = subparsers.add_parser(
+        "kaggle-notebook",
+        help="Write a Kaggle notebook (+ kernel-metadata.json) for a YAML config.",
+    )
+    kaggle_parser.add_argument("config", type=str, help="Path to the YAML configuration file.")
+    kaggle_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="Destination path for the generated .ipynb notebook.",
     )
 
     return parser
@@ -108,6 +126,8 @@ def main(argv: list[str] | None = None) -> int:
             "output_dir": str(config.resolved_output_dir()),
             "wandb_enabled": config.wandb.enabled,
             "modal_enabled": config.modal.enabled,
+            "kaggle_enabled": config.kaggle.enabled,
+            "backend": config.resolved_backend(),
         }
         print(json.dumps(payload, indent=2))
         return 0
@@ -119,25 +139,41 @@ def main(argv: list[str] | None = None) -> int:
         print(dest)
         return 0
 
+    if args.command == "kaggle-notebook":
+        from trloom.kaggle_support import write_kaggle_notebook
+
+        dest = write_kaggle_notebook(args.config, destination=args.output)
+        print(dest)
+        return 0
+
     if args.command == "run":
         from trloom import run_from_yaml
 
-        if args.modal and args.local:
-            parser.error("Use only one of --modal / --local.")
+        flags = [args.modal, args.kaggle, args.local]
+        if sum(bool(f) for f in flags) > 1:
+            parser.error("Use only one of --modal / --kaggle / --local.")
+
         use_modal: bool | None
-        if args.modal:
-            use_modal = True
-        elif args.local:
+        use_kaggle: bool | None
+        if args.local:
             use_modal = False
+            use_kaggle = False
+        elif args.modal:
+            use_modal = True
+            use_kaggle = False
+        elif args.kaggle:
+            use_modal = False
+            use_kaggle = True
         else:
             use_modal = None
+            use_kaggle = None
 
         config_path = Path(args.config)
         if not config_path.is_file():
             print(f"Config not found: {config_path}", file=sys.stderr)
             return 1
 
-        run_from_yaml(config_path, use_modal=use_modal)
+        run_from_yaml(config_path, use_modal=use_modal, use_kaggle=use_kaggle)
         return 0
 
     parser.print_help()

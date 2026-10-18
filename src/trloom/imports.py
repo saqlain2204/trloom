@@ -48,8 +48,8 @@ def resolve_callable(spec: str, *, label: str = "callable") -> Callable[..., Any
     except ImportError as exc:
         raise ImportError(
             f"Could not import module '{module_name}' while resolving {label} '{spec}'. "
-            "If you are running on Modal / a remote provider, ensure the module is listed "
-            "under `user_code` or referenced so TRLoom can bundle it with the job."
+            "If you are running on Modal / Kaggle / a remote provider, ensure the module "
+            "is listed under `user_code` or referenced so TRLoom can bundle it with the job."
         ) from exc
 
     try:

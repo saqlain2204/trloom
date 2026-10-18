@@ -115,10 +115,44 @@ class DatasetConfig(BaseModel):
         description="Import path for a trainer formatting_func (e.g. SFTTrainer).",
     )
 
+    @field_validator("map_fn", "formatting_func", "prompt_template", mode="before")
+    @classmethod
+    def _empty_str_to_none(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("prompt_output_column")
+    @classmethod
+    def _nonempty_output_column(cls, value: str) -> str:
+        if not value or not str(value).strip():
+            raise ValueError("prompt_output_column must be a non-empty string.")
+        return value
+
+    @field_validator("prompt_remove_columns", mode="before")
+    @classmethod
+    def _normalize_remove_columns(cls, value: Any) -> Any:
+        if value is None or isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            cleaned = [str(item) for item in value]
+            if any(not item.strip() for item in cleaned):
+                raise ValueError("prompt_remove_columns entries must be non-empty strings.")
+            return cleaned
+        raise TypeError(
+            "prompt_remove_columns must be bool, string, list of strings, or null."
+        )
+
     @model_validator(mode="after")
     def _require_source(self) -> DatasetConfig:
         if not self.path and not self.datasets:
             raise ValueError("Dataset config requires either 'path' or 'datasets'.")
+        if self.path and self.datasets:
+            raise ValueError(
+                "Dataset config accepts either 'path' or 'datasets', not both."
+            )
         return self
 
 

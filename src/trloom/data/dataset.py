@@ -46,16 +46,41 @@ def _infer_builder(path: str) -> str | None:
 def _rename_columns(dataset: Any, columns: dict[str, str] | None) -> Any:
     if not columns:
         return dataset
-    rename_map = {src: dst for src, dst in columns.items() if src in getattr(dataset, "column_names", [])}
-    if not rename_map:
+    names = getattr(dataset, "column_names", None)
+    if not names:
         return dataset
+    rename_map = {src: dst for src, dst in columns.items() if src in names}
+    if not rename_map:
+        missing = sorted(set(columns) - set(names))
+        if missing:
+            logger.warning(
+                "Column rename skipped missing source columns %s (have %s)",
+                missing,
+                list(names),
+            )
+        return dataset
+    overlap = [dst for src, dst in rename_map.items() if dst in names and dst != src]
+    if overlap:
+        raise ValueError(
+            f"Column rename would overwrite existing columns: {overlap}. "
+            f"Rename map: {rename_map}"
+        )
     return dataset.rename_columns(rename_map)
+
+
+def _apply_columns(dataset: DatasetLike, columns: dict[str, str] | None) -> DatasetLike:
+    if not columns:
+        return dataset
+    if isinstance(dataset, (DatasetDict, IterableDatasetDict)):
+        return type(dataset)({k: _rename_columns(v, columns) for k, v in dataset.items()})
+    return _rename_columns(dataset, columns)
 
 
 def _load_single_source(
     source: DatasetSourceConfig | DatasetConfig,
     *,
     default_split: str | None = None,
+    apply_columns: bool = True,
 ) -> DatasetLike:
     path = source.path
     if path is None:
@@ -92,7 +117,9 @@ def _load_single_source(
                 dataset = load_from_disk(str(local))
             except Exception:
                 logger.info("Falling back to load_dataset for directory: %s", local)
-                dataset = load_dataset(str(local), name=name, split=split, streaming=streaming, **kwargs)
+                dataset = load_dataset(
+                    str(local), name=name, split=split, streaming=streaming, **kwargs
+                )
         else:
             builder = _infer_builder(str(local))
             if builder is None and data_files is None:
@@ -105,16 +132,16 @@ def _load_single_source(
             file_kwargs = dict(kwargs)
             if builder and "data_files" not in file_kwargs:
                 file_kwargs["data_files"] = str(local)
-            dataset = load_dataset(load_path, name=name, split=split, streaming=streaming, **file_kwargs)
+            dataset = load_dataset(
+                load_path, name=name, split=split, streaming=streaming, **file_kwargs
+            )
     else:
         logger.info("Loading Hub dataset: %s (name=%s, split=%s)", path, name, split)
         dataset = load_dataset(path, name=name, split=split, streaming=streaming, **kwargs)
 
-    columns = getattr(source, "columns", None)
-    if columns and hasattr(dataset, "column_names"):
-        dataset = _rename_columns(dataset, columns)
-    elif columns and isinstance(dataset, (DatasetDict, IterableDatasetDict)):
-        dataset = type(dataset)({k: _rename_columns(v, columns) for k, v in dataset.items()})
+    if apply_columns:
+        columns = getattr(source, "columns", None)
+        dataset = _apply_columns(dataset, columns)
 
     return dataset
 
@@ -189,6 +216,19 @@ def _apply_formatting(split: Any, config: DatasetConfig) -> Any:
     )
 
 
+def _ensure_text_column(dataset: Any, text_column: str | None, *, split_label: str) -> None:
+    if not text_column or not hasattr(dataset, "column_names"):
+        return
+    names = dataset.column_names
+    if names is None:
+        return
+    if text_column not in names:
+        raise KeyError(
+            f"text_column '{text_column}' not found in {split_label} split. "
+            f"Columns: {names}"
+        )
+
+
 def load_train_eval_datasets(
     config: DatasetConfig,
 ) -> tuple[Dataset | IterableDataset, Dataset | IterableDataset | None]:
@@ -198,15 +238,14 @@ def load_train_eval_datasets(
     """
     if config.datasets:
         dataset_dict = _mix_datasets(config.datasets, train_split=config.train_split)
+        # Top-level columns apply after mixture (per-source columns already applied).
+        dataset_dict = _apply_columns(dataset_dict, config.columns)
     else:
         assert config.path is not None
-        raw = _load_single_source(config)
+        # Rename once at the DatasetDict level to avoid double-rename no-ops / conflicts.
+        raw = _load_single_source(config, apply_columns=False)
         dataset_dict = _as_dataset_dict(raw, config.train_split)
-        if config.columns:
-            if isinstance(dataset_dict, (DatasetDict, IterableDatasetDict)):
-                dataset_dict = type(dataset_dict)(
-                    {k: _rename_columns(v, config.columns) for k, v in dataset_dict.items()}
-                )
+        dataset_dict = _apply_columns(dataset_dict, config.columns)
 
     if config.train_split not in dataset_dict:
         available = list(dataset_dict.keys())
@@ -219,12 +258,9 @@ def load_train_eval_datasets(
     if config.eval_split and config.eval_split in dataset_dict:
         eval_dataset = _apply_formatting(dataset_dict[config.eval_split], config)
 
-    if config.text_column and hasattr(train_dataset, "column_names"):
-        if config.text_column not in train_dataset.column_names:
-            raise KeyError(
-                f"text_column '{config.text_column}' not found. "
-                f"Columns: {train_dataset.column_names}"
-            )
+    _ensure_text_column(train_dataset, config.text_column, split_label="train")
+    if eval_dataset is not None:
+        _ensure_text_column(eval_dataset, config.text_column, split_label="eval")
 
     logger.info(
         "Loaded train dataset (%s)%s",

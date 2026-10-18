@@ -22,7 +22,8 @@ _DEFAULT_PIP = [
     "pyyaml",
     "pydantic",
     "huggingface-hub",
-    "wandb"
+    "jinja2",
+    "wandb",
 ]
 
 
@@ -76,11 +77,6 @@ def _build_image(modal: Any, modal_cfg: ModalConfig) -> Any:
             )
             image = image.add_local_dir(str(package_dir), remote_path="/root/trloom")
             image = image.env({"PYTHONPATH": "/root"})
-
-    if modal_cfg.install_source != "local" and any(
-        "wandb" in pkg.lower() for pkg in modal_cfg.pip_packages
-    ):
-        pass  # already included via pip_packages
 
     return image
 

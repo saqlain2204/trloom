@@ -6,6 +6,9 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+from datasets import Dataset, DatasetDict
+
 from trloom.config import load_config
 from trloom.config.schema import DatasetConfig, FineTuneConfig
 from trloom.data.dataset import load_train_eval_datasets
@@ -47,11 +50,68 @@ def test_prompt_template_on_dataset(tmp_path: Path) -> None:
         prompt_template="Q: {{ instruction }}\nA: {{ response }}",
         prompt_output_column="text",
         prompt_remove_columns=True,
-        text_column="text",
     )
     train, _ = load_train_eval_datasets(config)
     assert train.column_names == ["text"]
     assert train[0]["text"] == "Q: Hi\nA: Hello"
+
+
+def test_prompt_template_missing_column_lists_available() -> None:
+    ds = Dataset.from_list([{"instruction": "Hi"}])
+    with pytest.raises(ValueError, match="Available columns"):
+        apply_prompt_template(ds, "{{ missing }}", output_column="text")
+
+
+def test_prompt_template_empty_rejected() -> None:
+    ds = Dataset.from_list([{"a": 1}])
+    with pytest.raises(ValueError, match="non-empty"):
+        apply_prompt_template(ds, "   ", output_column="text")
+
+
+def test_prompt_template_rejects_dataset_dict() -> None:
+    dd = DatasetDict({"train": Dataset.from_list([{"a": 1}])})
+    with pytest.raises(TypeError, match="DatasetDict"):
+        apply_prompt_template(dd, "{{ a }}", output_column="text")
+
+
+def test_empty_map_fn_coerced_to_none() -> None:
+    config = DatasetConfig(path="trl-lib/Capybara", map_fn="  ", eval_split=None)
+    assert config.map_fn is None
+
+
+def test_path_and_datasets_mutually_exclusive() -> None:
+    with pytest.raises(ValueError, match="not both"):
+        DatasetConfig.model_validate(
+            {
+                "path": "trl-lib/Capybara",
+                "datasets": [{"path": "trl-lib/Capybara"}],
+            }
+        )
+
+
+def test_prompt_remove_columns_string_coerced() -> None:
+    config = DatasetConfig(
+        path="trl-lib/Capybara",
+        eval_split=None,
+        prompt_remove_columns="instruction",
+    )
+    assert config.prompt_remove_columns == ["instruction"]
+
+
+def test_column_rename_overwrite_raises(tmp_path: Path) -> None:
+    data_path = tmp_path / "train.jsonl"
+    data_path.write_text(
+        json.dumps({"prompt": "hi", "text": "keep"}) + "\n",
+        encoding="utf-8",
+    )
+    config = DatasetConfig(
+        path=str(data_path),
+        train_split="train",
+        eval_split=None,
+        columns={"prompt": "text"},
+    )
+    with pytest.raises(ValueError, match="overwrite"):
+        load_train_eval_datasets(config)
 
 
 def test_map_fn_from_user_module(tmp_path: Path) -> None:
@@ -84,6 +144,55 @@ def test_map_fn_from_user_module(tmp_path: Path) -> None:
     prepare_local_user_code(config)
     train, _ = load_train_eval_datasets(config.dataset)
     assert train[0]["text"] == "x => y"
+
+
+def test_map_fn_then_prompt_template_then_text_column(tmp_path: Path) -> None:
+    module_path = tmp_path / "prep.py"
+    module_path.write_text(
+        "def add_tag(example):\n"
+        "    return {'instruction': '[x] ' + example['instruction'], "
+        "'response': example['response']}\n",
+        encoding="utf-8",
+    )
+    data_path = tmp_path / "train.jsonl"
+    data_path.write_text(
+        json.dumps({"instruction": "Ask", "response": "Ans"}) + "\n",
+        encoding="utf-8",
+    )
+    sys.path.insert(0, str(tmp_path))
+    try:
+        config = DatasetConfig(
+            path=str(data_path),
+            train_split="train",
+            eval_split=None,
+            map_fn="prep:add_tag",
+            prompt_template="{{ instruction }} :: {{ response }}",
+            prompt_output_column="text",
+            prompt_remove_columns=True,
+            text_column="text",
+        )
+        train, _ = load_train_eval_datasets(config)
+        assert train[0]["text"] == "[x] Ask :: Ans"
+        assert train.column_names == ["text"]
+    finally:
+        sys.modules.pop("prep", None)
+        if str(tmp_path) in sys.path:
+            sys.path.remove(str(tmp_path))
+
+
+def test_text_column_missing_after_format_raises(tmp_path: Path) -> None:
+    data_path = tmp_path / "train.jsonl"
+    data_path.write_text(json.dumps({"instruction": "Hi"}) + "\n", encoding="utf-8")
+    config = DatasetConfig(
+        path=str(data_path),
+        train_split="train",
+        eval_split=None,
+        prompt_template="{{ instruction }}",
+        prompt_output_column="prompt",
+        text_column="text",
+    )
+    with pytest.raises(KeyError, match="text_column"):
+        load_train_eval_datasets(config)
 
 
 def test_collect_and_bundle_user_code(tmp_path: Path) -> None:
@@ -184,8 +293,6 @@ user_code:
 
 
 def test_apply_prompt_template_helper() -> None:
-    from datasets import Dataset
-
     ds = Dataset.from_list([{"a": 1, "b": 2}])
     out = apply_prompt_template(ds, "{{ a }}+{{ b }}", output_column="text", remove_columns=True)
     assert out[0]["text"] == "1+2"
@@ -200,8 +307,6 @@ def test_format_dataset_order(tmp_path: Path) -> None:
     )
     sys.path.insert(0, str(tmp_path))
     try:
-        from datasets import Dataset
-
         ds = Dataset.from_list([{"x": 3, "y": "z"}])
         out = format_dataset(
             ds,

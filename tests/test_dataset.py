@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from trloom.config.schema import DatasetConfig, DatasetSourceConfig
 from trloom.data.dataset import load_train_eval_datasets
 
@@ -54,3 +56,32 @@ def test_mixture_concatenate(tmp_path: Path) -> None:
     )
     train, _ = load_train_eval_datasets(config)
     assert len(train) == 2
+
+
+def test_mixture_top_level_columns(tmp_path: Path) -> None:
+    a = tmp_path / "a.jsonl"
+    b = tmp_path / "b.jsonl"
+    a.write_text(json.dumps({"prompt": "a"}) + "\n", encoding="utf-8")
+    b.write_text(json.dumps({"prompt": "b"}) + "\n", encoding="utf-8")
+
+    config = DatasetConfig(
+        datasets=[
+            DatasetSourceConfig(path=str(a)),
+            DatasetSourceConfig(path=str(b)),
+        ],
+        train_split="train",
+        eval_split=None,
+        columns={"prompt": "text"},
+    )
+    train, _ = load_train_eval_datasets(config)
+    assert "text" in train.column_names
+    assert "prompt" not in train.column_names
+    assert len(train) == 2
+
+
+def test_unsupported_local_extension_raises(tmp_path: Path) -> None:
+    bad = tmp_path / "data.bin"
+    bad.write_bytes(b"\x00\x01")
+    config = DatasetConfig(path=str(bad), train_split="train", eval_split=None)
+    with pytest.raises(ValueError, match="Unsupported local dataset"):
+        load_train_eval_datasets(config)

@@ -103,6 +103,13 @@ user_code:
 
 `map_fn` runs before `prompt_template` when both are set.
 
+!!! warning "Template / transform safety"
+    - Empty `map_fn` / `prompt_template` strings are treated as unset.
+    - Missing Jinja variables raise with the available column names.
+    - `path` and `datasets` are mutually exclusive.
+    - Column renames that would overwrite an existing column are rejected.
+    - Top-level `columns` also apply after mixtures (per-source `columns` still apply first).
+
 ### Trainer `formatting_func` (e.g. SFT)
 
 ```yaml

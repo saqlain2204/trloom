@@ -1,11 +1,8 @@
-name: Publish to PyPI
+name: Release
 
-# Publishes with Trusted Publishing (OIDC) — no long-lived PyPI API token.
-#
-# Triggered by:
-#   - cut-release.yml (workflow_dispatch) after it creates a tag
-#   - manual "Run workflow" (e.g. retry a failed publish)
-#   - push of a v* tag created outside Actions (local git push)
+# Single publishing pipeline for one SemVer version.
+# Actions → Release → Run workflow → choose patch / minor / major
+# (or pass an existing tag to retry PyPI publish only).
 #
 # One-time setup on https://pypi.org/manage/project/trloom/settings/publishing/ :
 #   Owner:      saqlain2204
@@ -14,17 +11,94 @@ name: Publish to PyPI
 #   Environment: pypi
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing git tag to publish (e.g. v0.1.2)
+      bump:
+        description: SemVer bump (ignored when republishing an existing tag)
         required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      tag:
+        description: Optional existing tag to republish only (e.g. v0.2.0). Leave empty to cut a new release.
+        required: false
         type: string
+        default: ""
+
+permissions:
+  contents: write
+  id-token: write
+  actions: write
 
 jobs:
+  prepare:
+    name: Prepare tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        if: ${{ inputs.tag == '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve tag
+        id: resolve
+        env:
+          BUMP: ${{ inputs.bump }}
+          EXISTING_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${EXISTING_TAG}" ]; then
+            if ! git rev-parse -q --verify "refs/tags/${EXISTING_TAG}" >/dev/null; then
+              echo "Tag ${EXISTING_TAG} does not exist."
+              exit 1
+            fi
+            echo "tag=${EXISTING_TAG}" >> "$GITHUB_OUTPUT"
+            echo "Republishing existing tag: ${EXISTING_TAG}"
+            exit 0
+          fi
+
+          if git describe --exact-match --tags HEAD >/dev/null 2>&1; then
+            echo "HEAD is already tagged ($(git describe --exact-match --tags HEAD))."
+            exit 1
+          fi
+
+          NEXT="$(python scripts/next_semver.py --bump "$BUMP")"
+          if [ -z "$NEXT" ]; then
+            echo "Failed to compute next SemVer tag."
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/${NEXT}" >/dev/null; then
+            echo "Tag ${NEXT} already exists."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEXT" -m "Release $NEXT"
+          git push origin "refs/tags/${NEXT}"
+          gh release create "$NEXT" \
+            --title "$NEXT" \
+            --generate-notes \
+            --verify-tag
+
+          echo "tag=${NEXT}" >> "$GITHUB_OUTPUT"
+          echo "Created release ${NEXT}"
+
   build:
+    name: Build
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,7 +106,7 @@ jobs:
         with:
           # hatch-vcs needs full history + tags for the package version.
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,7 +115,7 @@ jobs:
 
       - name: Build sdist and wheel
         env:
-          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip build
@@ -64,13 +138,13 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: build
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/p/trloom
     permissions:
-      id-token: write # mandatory for Trusted Publishing / OIDC
+      id-token: write
     steps:
       - name: Download distributions
         uses: actions/download-artifact@v4

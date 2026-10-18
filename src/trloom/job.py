@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from trloom.config.loader import load_config
 from trloom.config.schema import FineTuneConfig
@@ -14,6 +14,8 @@ from trloom.trainers.registry import list_trainers
 from trloom.user_code import prepare_local_user_code
 
 logger = logging.getLogger(__name__)
+
+BackendName = Literal["local", "modal", "kaggle"]
 
 
 class FineTuneJob:
@@ -85,7 +87,40 @@ class FineTuneJob:
             logger.info("Pushed model to the Hugging Face Hub.")
 
 
-def run_from_yaml(path: str | Path, *, use_modal: bool | None = None) -> Any:
+def resolve_backend(
+    config: FineTuneConfig,
+    *,
+    use_modal: bool | None = None,
+    use_kaggle: bool | None = None,
+) -> BackendName:
+    """Resolve the execution backend from CLI overrides and YAML flags.
+
+    Explicit CLI flags win. ``use_modal`` / ``use_kaggle`` cannot both be True.
+    """
+    if use_modal and use_kaggle:
+        raise ValueError("Choose at most one of use_modal / use_kaggle.")
+
+    if use_modal is True:
+        return "modal"
+    if use_kaggle is True:
+        return "kaggle"
+    if use_modal is False and use_kaggle is False:
+        return "local"
+    if use_modal is False:
+        # Explicitly disable Modal; still allow Kaggle from YAML.
+        return "kaggle" if config.kaggle.enabled else "local"
+    if use_kaggle is False:
+        return "modal" if config.modal.enabled else "local"
+
+    return config.resolved_backend()
+
+
+def run_from_yaml(
+    path: str | Path,
+    *,
+    use_modal: bool | None = None,
+    use_kaggle: bool | None = None,
+) -> Any:
     """Load a YAML config and run the fine-tuning job.
 
     Parameters
@@ -93,15 +128,24 @@ def run_from_yaml(path: str | Path, *, use_modal: bool | None = None) -> Any:
     path:
         Path to a TRLoom YAML configuration file.
     use_modal:
-        If ``True``, force Modal execution. If ``None``, follow ``modal.enabled``
-        in the config. If ``False``, always run locally.
+        If ``True``, force Modal execution. If ``False``, never use Modal.
+        If ``None``, follow ``modal.enabled`` in the config (subject to Kaggle).
+    use_kaggle:
+        If ``True``, force Kaggle execution. If ``False``, never use Kaggle.
+        If ``None``, follow ``kaggle.enabled`` in the config (subject to Modal).
     """
     config = load_config(path)
-    run_on_modal = config.modal.enabled if use_modal is None else use_modal
-    if run_on_modal:
+    backend = resolve_backend(config, use_modal=use_modal, use_kaggle=use_kaggle)
+
+    if backend == "modal":
         from trloom.modal_support import run_on_modal as _run_on_modal
 
         return _run_on_modal(path)
+
+    if backend == "kaggle":
+        from trloom.kaggle_support import run_on_kaggle as _run_on_kaggle
+
+        return _run_on_kaggle(path)
 
     return FineTuneJob(config).run()
 

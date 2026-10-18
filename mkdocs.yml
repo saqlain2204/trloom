@@ -86,6 +86,7 @@ nav:
       - Datasets: guides/datasets.md
       - Weights & Biases: guides/wandb.md
       - Modal: guides/modal.md
+      - Kaggle: guides/kaggle.md
       - Examples: guides/examples.md
   - CLI: cli.md
   - API reference: api.md

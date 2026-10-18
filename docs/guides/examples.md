@@ -12,6 +12,7 @@ All example configs live in the repository [`examples/`](https://github.com/saql
 | `examples/data/sample_instruction.jsonl` | Instruction/response rows for formatting demos |
 | `examples/dpo_wandb.yaml` | DPO with Weights & Biases |
 | `examples/grpo_modal.yaml` | GRPO on Modal with rewards and secrets |
+| `examples/sft_kaggle.yaml` | SFT notebook / inline run on Kaggle GPUs |
 | `examples/modal_smoke/` | Complete tiny Modal walkthrough |
 
 ## Run patterns
@@ -31,13 +32,17 @@ trloom run examples/dpo_wandb.yaml
 python -m modal run examples/modal_smoke/run.py
 # or
 trloom run examples/modal_smoke/config.yaml --modal
+
+# Kaggle notebook export (needs trloom[kaggle] only for API push)
+trloom kaggle-notebook examples/sft_kaggle.yaml -o ./kaggle_job/job.ipynb
+trloom run examples/sft_kaggle.yaml --kaggle
 ```
 
 ## Suggested learning path
 
 1. Start with `sft_hub.yaml` or `sft_local.yaml` locally
 2. Add W&B using `dpo_wandb.yaml` as a template
-3. Prove remote execution with `modal_smoke/`
+3. Prove remote execution with `modal_smoke/` or `sft_kaggle.yaml`
 4. Scale up with `grpo_modal.yaml` (GPU, secrets, rewards)
 
 Keep the first remote run tiny (`max_steps`, small `split`, small model) before

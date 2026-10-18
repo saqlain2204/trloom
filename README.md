@@ -15,18 +15,19 @@
 
 **TRLoom** weaves a single YAML config into an end-to-end [Hugging Face TRL](https://huggingface.co/docs/trl) fine-tuning job.
 
-Configure the model, dataset, trainer, Weights & Biases, and optional [Modal](https://modal.com) GPU execution — then run one command.
+Configure the model, dataset, trainer, Weights & Biases, and optional [Modal](https://modal.com) or [Kaggle](https://www.kaggle.com/) GPU execution — then run one command.
 
 **Docs:** [https://saqlain2204.github.io/trloom/](https://saqlain2204.github.io/trloom/)
 
 ## Features
 
 - **TRL-native** — discovers trainers/configs from your installed TRL version (SFT, DPO, GRPO, KTO, Reward, RLOO, and experimental methods)
-- **YAML-first** — model, dataset, training args, W&B, and Modal all live in one file
+- **YAML-first** — model, dataset, training args, W&B, Modal, and Kaggle all live in one file
 - **Datasets** — Hugging Face Hub, local files (`json`/`jsonl`/`csv`/`parquet`/…), saved `datasets` directories, and mixtures
-- **Formatting** — Jinja2 prompt templates, YAML-referenced `map_fn` / `formatting_func`, bundled to Modal with the job
+- **Formatting** — Jinja2 prompt templates, YAML-referenced `map_fn` / `formatting_func`, bundled to Modal/Kaggle with the job
 - **W&B** — enable and configure logging entirely from YAML
 - **Modal** — launch the same YAML on remote GPUs with volume-backed outputs
+- **Kaggle** — run inline in a Kaggle kernel, or generate / push a GPU notebook
 - **CLI + Python API** — `trloom run config.yaml` or `FineTuneJob.from_yaml(...)`
 
 ## Installation
@@ -41,8 +42,9 @@ pip install trloom
 # Optional extras
 pip install "trloom[wandb]"
 pip install "trloom[modal]"
+pip install "trloom[kaggle]"
 pip install "trloom[bitsandbytes]"
-pip install "trloom[all]"      # wandb + modal + bitsandbytes
+pip install "trloom[all]"      # wandb + modal + kaggle + bitsandbytes
 pip install "trloom[dev]"      # pytest, ruff
 pip install "trloom[docs]"     # mkdocs
 ```
@@ -54,6 +56,7 @@ pip install git+https://github.com/saqlain2204/trloom.git
 
 # With extras
 pip install "trloom[modal] @ git+https://github.com/saqlain2204/trloom.git"
+pip install "trloom[kaggle] @ git+https://github.com/saqlain2204/trloom.git"
 pip install "trloom[all] @ git+https://github.com/saqlain2204/trloom.git"
 ```
 

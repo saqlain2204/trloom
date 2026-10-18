@@ -14,6 +14,7 @@ TRL as TRL evolves.
 | `training` | object | `{}` | Forwarded to the TRL `*Config` class |
 | `wandb` | object | disabled | Weights & Biases settings |
 | `modal` | object | disabled | Modal remote execution settings |
+| `kaggle` | object | disabled | Kaggle GPU / notebook execution settings |
 | `reward_funcs` | string or list | `null` | Reward names or import paths (GRPO / RLOO) |
 | `formatting_func` | string | `null` | Import path for trainer formatting_func |
 | `user_code` | string or list | `[]` | Local modules shipped to remote workers |
@@ -159,6 +160,31 @@ See [Modal](modal.md).
 | `git_url` | repo git URL |
 | `download_dir` | `null` |
 
+## `kaggle`
+
+See [Kaggle](kaggle.md).
+
+| Field | Default |
+|-------|---------|
+| `enabled` | `false` |
+| `mode` | `"auto"` (`auto` / `inline` / `notebook`) |
+| `accelerator` | `"gpu"` (`gpu` / `tpu` / `none`) |
+| `push` | `false` |
+| `username` / `kernel_slug` | `null` |
+| `title` | `"TRLoom Fine-Tune"` |
+| `is_private` | `true` |
+| `enable_internet` | `true` |
+| `dataset_sources` / `competition_sources` / `kernel_sources` | `[]` |
+| `pip_packages` | `[]` |
+| `install_source` | `"pypi"` (`pypi` / `git`) |
+| `output_dir` | `"/kaggle/working/outputs"` |
+| `notebook_path` / `download_dir` | `null` |
+| `wait` | `true` |
+| `timeout_seconds` | `32400` |
+
+!!! warning
+    Do not enable both `modal.enabled` and `kaggle.enabled`.
+
 ## Rewards, formatting, and trainer extras
 
 ```yaml
@@ -169,7 +195,7 @@ reward_funcs:
 formatting_func: my_package.formatters:to_text  # trainer formatting_func
 
 user_code:
-  - ./my_package            # local modules shipped to Modal / remote workers
+  - ./my_package            # local modules shipped to Modal / Kaggle / remote workers
 
 trainer_kwargs:
   # Extra kwargs for the Trainer constructor
@@ -182,7 +208,7 @@ seed: 42
 `reward_funcs` and `formatting_func` / `dataset.map_fn` accept import paths
 (`pkg.mod:func` / `pkg.mod.func`). Local modules listed in `user_code` (or
 auto-detected from those import paths) are bundled when the job runs on Modal
-so remote workers can import them.
+or Kaggle so remote workers can import them.
 
 ## Full starter config
 

@@ -204,6 +204,52 @@ class ModalConfig(BaseModel):
     download_dir: str | None = None
 
 
+class KaggleConfig(BaseModel):
+    """Kaggle Notebooks / GPU execution settings.
+
+    Modes:
+    - ``auto``: if already inside a Kaggle kernel, run inline; otherwise write a notebook
+    - ``inline``: run in the current process (intended for Kaggle kernels)
+    - ``notebook``: generate a Kaggle notebook (and optionally push via the API)
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = False
+    mode: Literal["auto", "inline", "notebook"] = "auto"
+    accelerator: Literal["gpu", "tpu", "none"] = "gpu"
+    push: bool = False
+    username: str | None = None
+    kernel_slug: str | None = None
+    title: str = "TRLoom Fine-Tune"
+    is_private: bool = True
+    enable_internet: bool = True
+    dataset_sources: list[str] = Field(default_factory=list)
+    competition_sources: list[str] = Field(default_factory=list)
+    kernel_sources: list[str] = Field(default_factory=list)
+    pip_packages: list[str] = Field(default_factory=list)
+    install_source: Literal["pypi", "git"] = "pypi"
+    git_url: str = "git+https://github.com/saqlain2204/trloom.git"
+    output_dir: str = "/kaggle/working/outputs"
+    notebook_path: str | None = None
+    download_dir: str | None = None
+    wait: bool = True
+    timeout_seconds: int = 60 * 60 * 9
+
+    @field_validator(
+        "dataset_sources",
+        "competition_sources",
+        "kernel_sources",
+        "pip_packages",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_str_list(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return [value]
+        return value
+
+
 class FineTuneConfig(BaseModel):
     """Root configuration for a TRLoom fine-tuning job."""
 
@@ -222,6 +268,7 @@ class FineTuneConfig(BaseModel):
     )
     wandb: WandbConfig = Field(default_factory=WandbConfig)
     modal: ModalConfig = Field(default_factory=ModalConfig)
+    kaggle: KaggleConfig = Field(default_factory=KaggleConfig)
 
     # Optional extras
     reward_funcs: list[str] | str | None = None
@@ -236,7 +283,7 @@ class FineTuneConfig(BaseModel):
         default_factory=list,
         description=(
             "Local .py files or package directories to ship with remote jobs "
-            "(Modal, etc.) so YAML-referenced callables remain importable."
+            "(Modal, Kaggle, etc.) so YAML-referenced callables remain importable."
         ),
     )
     trainer_kwargs: dict[str, Any] = Field(
@@ -266,6 +313,15 @@ class FineTuneConfig(BaseModel):
             return [value]
         return value
 
+    @model_validator(mode="after")
+    def _exclusive_remote_backends(self) -> FineTuneConfig:
+        if self.modal.enabled and self.kaggle.enabled:
+            raise ValueError(
+                "Enable only one remote backend: set either modal.enabled or "
+                "kaggle.enabled, not both."
+            )
+        return self
+
     def resolved_formatting_func(self) -> str | None:
         """Trainer formatting_func import path (root overrides dataset)."""
         return self.formatting_func or self.dataset.formatting_func
@@ -273,3 +329,11 @@ class FineTuneConfig(BaseModel):
     def resolved_output_dir(self) -> Path:
         output_dir = self.training.get("output_dir", "./outputs")
         return Path(output_dir).expanduser().resolve()
+
+    def resolved_backend(self) -> Literal["local", "modal", "kaggle"]:
+        """Return the execution backend implied by the config flags."""
+        if self.modal.enabled:
+            return "modal"
+        if self.kaggle.enabled:
+            return "kaggle"
+        return "local"
